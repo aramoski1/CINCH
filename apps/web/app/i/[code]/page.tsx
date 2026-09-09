@@ -1,105 +1,120 @@
-import { color } from "@cinch/ui";
+"use client";
 
-async function loadInvite(code: string) {
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
-  try {
-    const res = await fetch(`${base}/v1/invites/${code}`, { cache: "no-store" });
-    if (!res.ok) return null;
-    return (await res.json()) as {
-      id: string;
-      title: string;
-      rendered: string;
-      stake: { currency: string; minor: number };
-      assumptions: string[];
-    };
-  } catch {
-    return null;
+import { useEffect, useState } from "react";
+import { remaining, initials, formatStake } from "../../../lib/format";
+import { loadSession } from "../../../lib/session";
+import { createBrowserApi } from "../../../lib/api";
+
+type Invite = {
+  id: string;
+  title: string;
+  rendered: string;
+  stake: { minor: number; hidden?: boolean };
+  inviteCode: string;
+  deadlineAt?: string;
+  outcome?: string | null;
+  committer?: { displayName: string };
+  partner?: string;
+  state?: string;
+};
+
+export default function InvitePage({ params }: { params: Promise<{ code: string }> }) {
+  const [code, setCode] = useState("");
+  const [invite, setInvite] = useState<Invite | null>(null);
+  const [missing, setMissing] = useState(false);
+  const [clock, setClock] = useState({ label: "—", risky: false, ms: 0 });
+  const [authed, setAuthed] = useState(false);
+  const [note, setNote] = useState("");
+
+  useEffect(() => {
+    setAuthed(Boolean(loadSession()));
+    void params.then(async ({ code: c }) => {
+      setCode(c);
+      const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+      try {
+        const res = await fetch(`${base}/v1/invites/${c}`, { cache: "no-store" });
+        if (!res.ok) {
+          setMissing(true);
+          return;
+        }
+        setInvite((await res.json()) as Invite);
+      } catch {
+        setMissing(true);
+      }
+    });
+  }, [params]);
+
+  useEffect(() => {
+    if (!invite?.deadlineAt) return;
+    const tick = () => setClock(remaining(invite.deadlineAt));
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [invite?.deadlineAt]);
+
+  const name = invite?.committer?.displayName ?? "A friend";
+  const first = name.split(" ")[0] ?? "them";
+
+  async function showed() {
+    if (!invite) return;
+    try {
+      await createBrowserApi().attest(invite.id, true);
+      setNote("Got it. They showed up.");
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "Couldn't record that.");
+    }
   }
-}
-
-export default async function InvitePage({ params }: { params: Promise<{ code: string }> }) {
-  const { code } = await params;
-  const invite = await loadInvite(code);
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: color.ink,
-        color: color.paper,
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        padding: 24,
-      }}
-    >
-      <article
-        style={{
-          width: "min(440px, 100%)",
-          background: color.paper,
-          color: color.ink,
-          padding: 32,
-          boxShadow: "0 24px 80px rgba(0,0,0,0.45)",
-          backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 11px, rgba(10,10,11,0.03) 12px)",
-        }}
-      >
-        <p style={{ letterSpacing: "0.18em", fontSize: 11, textTransform: "uppercase" }}>Cinch</p>
-        <h1 style={{ fontFamily: "Iowan Old Style, Palatino, serif", fontWeight: 400, fontSize: 32 }}>
-          {invite?.title ?? "A friend is committing to something."}
-        </h1>
-        <p style={{ fontSize: 18, lineHeight: 1.5 }}>{invite?.rendered ?? "Open this again once the API is running."}</p>
-        <p
-          style={{
-            fontVariantNumeric: "tabular-nums",
-            fontSize: 40,
-            margin: "24px 0 8px",
-            color: color.sealRed,
-          }}
-        >
-          {invite ? `${invite.stake.minor.toLocaleString()} ${invite.stake.currency}` : "— pts"}
-        </p>
-        <p style={{ fontSize: 13, opacity: 0.7 }}>
-          {(invite?.assumptions ?? []).join(" · ") || "Full terms visible. No signup gate."}
-        </p>
-        <a
-          href={`/?invite=${code}`}
-          style={{
-            display: "block",
-            marginTop: 28,
-            textAlign: "center",
-            background: color.ink,
-            color: color.paper,
-            padding: 14,
-            textDecoration: "none",
-            letterSpacing: "0.04em",
-          }}
-        >
-          Hold them to it
-        </a>
-        <a
-          href={`cinch://invite/${code}`}
-          style={{
-            display: "block",
-            marginTop: 12,
-            textAlign: "center",
-            color: color.ink,
-            opacity: 0.55,
-            fontSize: 13,
-          }}
-        >
-          Open in the iOS app
-        </a>
-      </article>
+    <main className="invite-stage">
+      {missing ? (
+        <article className="bet">
+          <p className="eyebrow">Witness</p>
+          <h1 className="hero">This isn't locked yet.</h1>
+          <p className="muted">When they lock it, this page is the job.</p>
+        </article>
+      ) : (
+        <article className="bet live" style={{ width: "min(24rem, 100%)" }}>
+          <p className="eyebrow">Hold them to it</p>
+          <div className="who" style={{ marginTop: 0 }}>
+            <div className="avatar">{initials(name)}</div>
+            <span>{name}</span>
+          </div>
+          <h2>{invite?.title ?? "…"}</h2>
+          <p className={clock.risky ? "clock nums hot" : "clock nums"}>{invite ? clock.label : "—"}</p>
+          <p className="stake nums" style={{ marginLeft: 0, marginTop: "0.75rem" }}>
+            {invite?.stake.hidden ? "Hidden until the end" : invite ? formatStake(invite.stake.minor) : ""} on the line
+          </p>
+          {authed ? (
+            <div className="stack mt-4">
+              <button type="button" className="btn btn-lock" onClick={() => void showed()}>
+                They showed up
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={() => {
+                  if (!invite) return;
+                  void createBrowserApi()
+                    .attest(invite.id, false)
+                    .then(() => setNote("Recorded. They missed."))
+                    .catch((e) => setNote(e instanceof Error ? e.message : "Couldn't record that."));
+                }}
+              >
+                They didn't
+              </button>
+            </div>
+          ) : (
+            <a className="hold mt-4" href={`/?invite=${code}`}>
+              Hold {first} to it
+            </a>
+          )}
+          {note ? <p className="ok mt-3">{note}</p> : null}
+          <a className="text-btn center mt-4" href="/">
+            Open Cinch
+          </a>
+        </article>
+      )}
     </main>
   );
-}
-
-export async function generateMetadata({ params }: { params: Promise<{ code: string }> }) {
-  const { code } = await params;
-  const invite = await loadInvite(code);
-  return {
-    title: invite?.title ?? "Cinch invite",
-    description: invite?.rendered ?? "Someone wants you to hold them to it.",
-    openGraph: { title: invite?.title ?? "Cinch", description: invite?.rendered ?? "" },
-  };
 }

@@ -6,10 +6,12 @@ import type { Env } from "./config/env";
 import { registerAuth } from "./routes/auth";
 import { registerCommitments } from "./routes/commitments";
 import { registerSocial } from "./routes/social";
+import { registerProduct } from "./routes/product";
 
 export async function buildApp(env: Env): Promise<FastifyInstance> {
   const app = Fastify({
     logger: { level: env.LOG_LEVEL },
+    bodyLimit: 2_000_000,
   });
 
   await app.register(cors, { origin: true });
@@ -36,6 +38,7 @@ export async function buildApp(env: Env): Promise<FastifyInstance> {
   await registerAuth(app);
   await registerCommitments(app, env);
   await registerSocial(app, env);
+  await registerProduct(app, env);
 
   app.setErrorHandler((error, _req, reply) => {
     if (error instanceof CinchError) {

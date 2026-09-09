@@ -31,7 +31,7 @@ export default function EmailScreen() {
       <TextInput
         autoCapitalize="none"
         keyboardType="email-address"
-        placeholder="you@babson.edu"
+        placeholder="you@email.com"
         placeholderTextColor="#8a877c"
         style={styles.input}
         value={email}

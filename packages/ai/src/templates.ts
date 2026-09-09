@@ -17,6 +17,9 @@ const TEMPLATES: Array<{ id: number; pattern: RegExp; hit: Omit<TemplateHit, "id
   { id: 8, pattern: /10,?000 steps/i, hit: { title: "10,000 steps", stakeMinor: 500 } },
   { id: 9, pattern: /meditate/i, hit: { title: "Meditate 10 minutes", stakeMinor: 500 } },
   { id: 10, pattern: /pushups|push-ups/i, hit: { title: "100 pushups", stakeMinor: 400 } },
+  { id: 11, pattern: /deep work|no phone/i, hit: { title: "Deep work, no phone", placeHint: "library", dwellMinutes: 120, stakeMinor: 2000 } },
+  { id: 12, pattern: /call (my )?(mom|dad|mother)/i, hit: { title: "Call home", stakeMinor: 500 } },
+  { id: 13, pattern: /4x|four times.*gym|gym.*4x/i, hit: { title: "Gym 4x this week", placeHint: "gym", dwellMinutes: 45, stakeMinor: 2500 } },
 ];
 
 export function matchTemplate(utterance: string): TemplateHit | null {

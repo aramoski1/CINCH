@@ -5,6 +5,6 @@ export function apiBase(): string {
   return process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 }
 
-export function createBrowserApi(): CinchApi {
-  return new CinchApi(apiBase(), () => loadSession()?.token ?? null);
+export function createBrowserApi(onUnauthorized?: () => void): CinchApi {
+  return new CinchApi(apiBase(), () => loadSession()?.token ?? null, onUnauthorized);
 }

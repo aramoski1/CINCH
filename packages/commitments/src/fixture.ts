@@ -7,14 +7,14 @@ export const gymConditions: RuleNode = {
       op: "LEAF",
       leaf: {
         kind: "location.enter",
-        params: { place: "Babson Recreation Center", radius_m: 100, before: "06:30" },
+        params: { place: "the gym", radius_m: 100, before: "06:30" },
       },
     },
     {
       op: "LEAF",
       leaf: {
         kind: "location.dwell",
-        params: { place: "Babson Recreation Center", radius_m: 100, min_seconds: 2700 },
+        params: { place: "the gym", radius_m: 100, min_seconds: 2700 },
       },
     },
   ],
@@ -67,7 +67,7 @@ export function gymSpec(overrides: Partial<CommitmentSpec> = {}): CommitmentSpec
     visibility: "partners_only",
     meta: {
       field_confidence: { deadline_at: 0.92, place: 0.8 },
-      assumptions: ["Tomorrow = next local morning", "Gym = Babson Recreation Center"],
+      assumptions: ["Tomorrow = next local morning", "Gym = the gym"],
       needs_disambiguation: [],
       safety_flags: [],
       feasibility: { score: 0.8, warnings: [] },

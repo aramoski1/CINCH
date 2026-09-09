@@ -36,6 +36,7 @@ export function validateSpec(spec: CommitmentSpec, ctx: ValidatorContext): Valid
     verificationSourceAvailable(spec, ctx),
     verificationPlanCanSucceed(spec),
     noForbiddenCategory(spec),
+    houseDoesNotProfit(spec),
     recurrenceBounded(spec),
     timezoneResolved(spec),
     dstSafe(spec),
@@ -178,6 +179,13 @@ export function noForbiddenCategory(spec: CommitmentSpec): ValidatorResult {
   }
   if (spec.meta.safety_flags.length > 0) {
     return fail("noForbiddenCategory", "Safety classifier blocked this commitment.");
+  }
+  return ok();
+}
+
+export function houseDoesNotProfit(spec: CommitmentSpec): ValidatorResult {
+  if (spec.stake.on_failure.destination === "platform") {
+    return fail("houseDoesNotProfit", "Forfeits never reach the company.");
   }
   return ok();
 }

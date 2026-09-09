@@ -1,6 +1,5 @@
 "use client";
 
-import { color } from "@cinch/ui";
 import { useState } from "react";
 
 export default function OpsPage() {
@@ -19,33 +18,21 @@ export default function OpsPage() {
   }
 
   return (
-    <main style={{ minHeight: "100vh", background: color.ink, color: color.paper, padding: 40 }}>
-      <h1 style={{ fontFamily: "Iowan Old Style, Palatino, serif" }}>Ops</h1>
-      <p>Internal only. Token never stored.</p>
-      <input
-        placeholder="admin token"
-        value={token}
-        onChange={(e) => setToken(e.target.value)}
-        style={{ display: "block", width: 360, margin: "12px 0", padding: 8 }}
-      />
-      <input
-        placeholder="commitment id"
-        value={id}
-        onChange={(e) => setId(e.target.value)}
-        style={{ display: "block", width: 360, margin: "12px 0", padding: 8 }}
-      />
-      <div style={{ display: "flex", gap: 8 }}>
-        <button type="button" onClick={() => void resolve("success")}>
-          Success
-        </button>
-        <button type="button" onClick={() => void resolve("failure")}>
-          Failure
-        </button>
-        <button type="button" onClick={() => void resolve("voided")}>
-          Void
-        </button>
+    <main className="app">
+      <div className="phone">
+        <div className="screen">
+          <p className="eyebrow">Internal</p>
+          <h1 className="hero">Ops</h1>
+          <input className="field" placeholder="admin token" value={token} onChange={(e) => setToken(e.target.value)} />
+          <input className="field mt-3" placeholder="commitment id" value={id} onChange={(e) => setId(e.target.value)} />
+          <div className="stack mt-4">
+            <button type="button" className="btn btn-lock" onClick={() => void resolve("success")}>Kept</button>
+            <button type="button" className="btn btn-danger" onClick={() => void resolve("failure")}>Missed</button>
+            <button type="button" className="btn btn-ghost" onClick={() => void resolve("voided")}>Void</button>
+          </div>
+          {out ? <p className="status mt-3 nums">{out}</p> : null}
+        </div>
       </div>
-      <pre style={{ marginTop: 24, color: color.signalAmber }}>{out}</pre>
     </main>
   );
 }

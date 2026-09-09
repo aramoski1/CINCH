@@ -1,72 +1,177 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { AuthSession, CommitmentRow, GroupRow, Wallet } from "@cinch/api-client";
-import { color } from "@cinch/ui";
+import type { AuthSession, SessionUser } from "@cinch/api-client";
+import { isUnauthorized } from "@cinch/api-client";
 import { createBrowserApi } from "../../lib/api";
 import { clearSession, loadSession, saveSession } from "../../lib/session";
-import * as ui from "./styles";
+import { loadOnboarded, persistHaptics, saveOnboarded } from "../../lib/prefs";
+import { thud } from "../../lib/format";
+import { CreateScreen } from "./create-screen";
+import { HomeScreen } from "./home-screen";
+import { YouScreen } from "./you-screen";
 
-type Tab = "home" | "feed" | "create" | "groups" | "profile";
-
-function inviteCodeFromLocation(): string | null {
-  if (typeof window === "undefined") return null;
-  return new URLSearchParams(window.location.search).get("invite");
-}
+type Tab = "home" | "new" | "you";
 
 export function CinchApp() {
-  const api = useMemo(() => createBrowserApi(), []);
   const [session, setSession] = useState<AuthSession | null>(null);
   const [tab, setTab] = useState<Tab>("home");
   const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [stamp, setStamp] = useState<string | null>(null);
+  const [online, setOnline] = useState(true);
+  const [onboarded, setOnboarded] = useState(true);
+  const [ready, setReady] = useState(false);
+  const [expired, setExpired] = useState(false);
+  const api = useMemo(
+    () =>
+      createBrowserApi(() => {
+        clearSession();
+        setExpired(true);
+        setSession(null);
+        setTab("home");
+      }),
+    [],
+  );
 
   useEffect(() => {
-    setSession(loadSession());
-    setInviteCode(inviteCodeFromLocation());
-  }, []);
+    setOnboarded(loadOnboarded());
+    setInviteCode(new URLSearchParams(window.location.search).get("invite"));
+    const on = () => setOnline(navigator.onLine);
+    on();
+    window.addEventListener("online", on);
+    window.addEventListener("offline", on);
 
-  function signedIn(next: AuthSession) {
-    saveSession(next);
-    setSession(next);
+    const current = loadSession();
+    persistHaptics(current?.user.settings?.haptics ?? true);
+    if (!current) {
+      setReady(true);
+    } else {
+      void api
+        .me()
+        .then((m) => {
+          const merged = { ...current, user: { ...current.user, ...m.user } };
+          saveSession(merged);
+          persistHaptics(merged.user.settings?.haptics ?? true);
+          setSession(merged);
+        })
+        .catch((error) => {
+          if (isUnauthorized(error)) {
+            clearSession();
+            setExpired(true);
+            setSession(null);
+            return;
+          }
+          setSession(current);
+        })
+        .finally(() => setReady(true));
+    }
+
+    return () => {
+      window.removeEventListener("online", on);
+      window.removeEventListener("offline", on);
+    };
+  }, [api]);
+
+  function flash(label: string) {
+    window.setTimeout(() => thud(), 80);
+    setStamp(label);
+    window.setTimeout(() => setStamp(null), 900);
   }
 
-  function signOut() {
-    clearSession();
-    setSession(null);
-    setTab("home");
-  }
-
-  if (!session) {
-    return (
-      <div style={ui.shell}>
-        <div style={ui.frame}>
-          <AuthScreen
-            onSession={signedIn}
-            inviteCode={inviteCode}
-          />
-        </div>
-      </div>
-    );
+  function updateUser(next: SessionUser) {
+    setSession((current) => {
+      if (!current) return current;
+      const merged = { ...current, user: { ...current.user, ...next } };
+      saveSession(merged);
+      return merged;
+    });
   }
 
   return (
-    <div style={ui.shell}>
-      <div style={ui.frame}>
-        {tab === "home" ? (
-          <HomeScreen api={api} session={session} inviteCode={inviteCode} onCreate={() => setTab("create")} />
+    <div className="app">
+      <div className="phone">
+        <div className="screen">
+          {!online ? <p className="banner" role="status">You're offline. The promise still stands.</p> : null}
+          {!ready ? (
+            <p className="muted">Cinch</p>
+          ) : !session ? (
+            <AuthScreen
+              inviteCode={inviteCode}
+              expired={expired}
+              onSession={(next) => {
+                saveSession(next);
+                persistHaptics(next.user.settings?.haptics ?? true);
+                setExpired(false);
+                setSession(next);
+              }}
+            />
+          ) : !onboarded ? (
+            <Onboard
+              name={session.user.displayName}
+              onDone={() => {
+                saveOnboarded();
+                setOnboarded(true);
+              }}
+            />
+          ) : (
+            <>
+              {tab === "home" ? (
+                <HomeScreen
+                  api={api}
+                  session={session}
+                  inviteCode={inviteCode}
+                  onCompose={() => setTab("new")}
+                  onFlash={flash}
+                />
+              ) : null}
+              {tab === "new" ? (
+                <CreateScreen
+                  api={api}
+                  online={online}
+                  onLocked={() => {
+                    flash("Locked");
+                    setTab("home");
+                  }}
+                />
+              ) : null}
+              {tab === "you" ? (
+                <YouScreen
+                  api={api}
+                  session={session}
+                  onCompose={() => setTab("new")}
+                  onFlash={flash}
+                  onUser={updateUser}
+                  onSignOut={() => {
+                    clearSession();
+                    setSession(null);
+                    setTab("home");
+                  }}
+                />
+              ) : null}
+            </>
+          )}
+        </div>
+        {session && onboarded ? (
+          <nav className="tabs" aria-label="Main">
+            {(["home", "new", "you"] as const).map((name) => (
+              <button
+                key={name}
+                type="button"
+                className={tab === name ? "on" : ""}
+                aria-current={tab === name ? "page" : undefined}
+                onClick={() => setTab(name)}
+              >
+                {name === "new" ? "Promise" : name === "you" ? "You" : "Now"}
+              </button>
+            ))}
+          </nav>
         ) : null}
-        {tab === "feed" ? <FeedScreen api={api} /> : null}
-        {tab === "create" ? <CreateScreen api={api} onLocked={() => setTab("home")} /> : null}
-        {tab === "groups" ? <GroupsScreen api={api} /> : null}
-        {tab === "profile" ? <ProfileScreen api={api} session={session} onSignOut={signOut} /> : null}
-        <nav style={ui.nav} aria-label="Main">
-          {(["home", "feed", "create", "groups", "profile"] as const).map((name) => (
-            <button key={name} type="button" style={ui.navBtn(tab === name)} onClick={() => setTab(name)}>
-              {name}
-            </button>
-          ))}
-        </nav>
       </div>
+      {stamp ? (
+        <div className="flash" role="status" aria-live="assertive">
+          <div className="stamp">{stamp}</div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -74,9 +179,11 @@ export function CinchApp() {
 function AuthScreen({
   onSession,
   inviteCode,
+  expired,
 }: {
   onSession: (session: AuthSession) => void;
   inviteCode: string | null;
+  expired: boolean;
 }) {
   const api = useMemo(() => createBrowserApi(), []);
   const [email, setEmail] = useState("");
@@ -87,19 +194,16 @@ function AuthScreen({
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
 
-  async function sendCode() {
+  async function send() {
     setErr("");
     setBusy(true);
     try {
       const res = await api.requestEmailCode(email);
-      if (res.throttled) {
-        setErr("Wait a minute, then try again.");
-        return;
-      }
+      if (res.throttled) return setErr("Wait a minute, then try again.");
       setDevCode(res.devCode ?? null);
       setStage("otp");
     } catch {
-      setErr("Could not send the code. Is the API running on port 4000?");
+      setErr("Can't reach Cinch.");
     } finally {
       setBusy(false);
     }
@@ -109,14 +213,9 @@ function AuthScreen({
     setErr("");
     setBusy(true);
     try {
-      const session = await api.verifyEmail({
-        email,
-        code,
-        displayName: name || undefined,
-      });
-      onSession(session);
+      onSession(await api.verifyEmail({ email, code, displayName: name || undefined }));
     } catch {
-      setErr("That code did not match.");
+      setErr("That code didn't match.");
     } finally {
       setBusy(false);
     }
@@ -124,54 +223,65 @@ function AuthScreen({
 
   return (
     <section>
-      <p style={ui.kicker}>Cinch</p>
+      <p className="eyebrow">Cinch</p>
       {stage === "email" ? (
         <>
-          <h1 style={ui.display}>Your email. A six-digit code. That's it.</h1>
-          {inviteCode ? (
-            <p style={{ opacity: 0.75 }}>
-              Someone sent you a card ({inviteCode}). Sign in to hold them to it.
-            </p>
-          ) : null}
+          <h1 className="hero">Tell a friend. Put something on it.</h1>
+          <p className="lede">
+            {expired
+              ? "Sign in again. The last session ended when the server restarted."
+              : inviteCode
+                ? "Someone asked you to hold them to a promise. Sign in only if you need to."
+                : "You make a promise. They watch. If you flake, you pay."}
+          </p>
+          <ol className="steps tight">
+            <li>
+              <strong>Promise</strong>
+              <span>Name who holds you to it.</span>
+            </li>
+            <li>
+              <strong>Lock</strong>
+              <span>Points on the line. Not money.</span>
+            </li>
+            <li>
+              <strong>Settle</strong>
+              <span>You did it, or they get the points.</span>
+            </li>
+          </ol>
+          <label className="sr-only" htmlFor="email">Email</label>
           <input
+            id="email"
+            className="field"
             autoComplete="email"
-            inputMode="email"
-            placeholder="you@babson.edu"
-            style={ui.field}
+            placeholder="you@email.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
-          {err ? <p style={ui.err}>{err}</p> : null}
-          <button type="button" style={ui.ghostBtn} disabled={busy || !email.includes("@")} onClick={() => void sendCode()}>
-            Send the code
+          {err ? <p className="status status-err" role="alert">{err}</p> : null}
+          <button type="button" className="btn btn-lock mt-4" disabled={busy || !email.includes("@")} onClick={() => void send()}>
+            {busy ? "Sending" : "Send a code"}
           </button>
+          <p className="muted center mt-4">Points only. The house never takes a cut.</p>
         </>
       ) : (
         <>
-          <h1 style={ui.display}>Six digits.</h1>
-          {devCode ? (
-            <p style={{ color: color.signalAmber, fontVariantNumeric: "tabular-nums", fontSize: 28 }}>
-              Local code: {devCode}
-            </p>
-          ) : (
-            <p style={{ opacity: 0.75 }}>Check your email for the code.</p>
-          )}
+          <h1 className="hero">Six digits.</h1>
+          {devCode ? <p className="ok nums otp">{devCode}</p> : <p className="muted">Check your email.</p>}
+          <label className="sr-only" htmlFor="otp">Code</label>
           <input
+            id="otp"
+            className="field mt-3"
             inputMode="numeric"
             maxLength={6}
+            autoComplete="one-time-code"
             placeholder="000000"
-            style={ui.field}
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
           />
-          <input
-            placeholder="What should we call you?"
-            style={{ ...ui.field, marginTop: 16 }}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          {err ? <p style={ui.err}>{err}</p> : null}
-          <button type="button" style={ui.ghostBtn} disabled={busy || code.length !== 6} onClick={() => void verify()}>
+          <label className="sr-only" htmlFor="name">Name</label>
+          <input id="name" className="field mt-3" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} />
+          {err ? <p className="status status-err" role="alert">{err}</p> : null}
+          <button type="button" className="btn btn-lock mt-4" disabled={busy || code.length !== 6} onClick={() => void verify()}>
             Continue
           </button>
         </>
@@ -180,321 +290,34 @@ function AuthScreen({
   );
 }
 
-function HomeScreen({
-  api,
-  session,
-  inviteCode,
-  onCreate,
-}: {
-  api: ReturnType<typeof createBrowserApi>;
-  session: AuthSession;
-  inviteCode: string | null;
-  onCreate: () => void;
-}) {
-  const [wallet, setWallet] = useState<Wallet | null>(null);
-  const [active, setActive] = useState<CommitmentRow[]>([]);
-  const [inviteNote, setInviteNote] = useState("");
-  const [err, setErr] = useState("");
-
-  async function refresh() {
-    try {
-      const [me, rows] = await Promise.all([api.me(), api.activeCommitments()]);
-      setWallet(me.wallet);
-      setActive(rows);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Could not load home.");
-    }
-  }
-
-  useEffect(() => {
-    void refresh();
-  }, []);
-
-  useEffect(() => {
-    if (!inviteCode) return;
-    void (async () => {
-      try {
-        const preview = await api.invitePreview(inviteCode);
-        await api.accept(preview.id);
-        setInviteNote(`You’re on ${preview.title}.`);
-        await refresh();
-      } catch {
-        setInviteNote("That invite is waiting. Open it again after they lock the card.");
-      }
-    })();
-  }, [inviteCode]);
-
-  const next = active[0];
-  const atStake = wallet?.reserved.minor ?? 0;
-
+function Onboard({ name, onDone }: { name: string; onDone: () => void }) {
+  const [step, setStep] = useState(0);
+  const slides = [
+    { title: `${name.split(" ")[0]}, a friend holds you to it.`, body: "Pick them from your network. They're the only audience." },
+    { title: "Photo or you lose.", body: "Beat the clock with proof. Miss the picture and they get the points." },
+    { title: "That's the whole product.", body: "Say it. Lock it. Prove it. The board ranks who actually shows up." },
+  ];
+  const slide = slides[step]!;
   return (
-    <section>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-        <p style={{ margin: 0, fontSize: 18 }}>{session.user.displayName}</p>
-        <p style={{ margin: 0, fontVariantNumeric: "tabular-nums" }}>{session.user.score}</p>
+    <section className="empty">
+      <p className="eyebrow">Cinch</p>
+      <h1 className="hero">{slide.title}</h1>
+      <p className="lede">{slide.body}</p>
+      <div className="dots" aria-hidden="true">
+        {slides.map((_, i) => (
+          <i key={i} className={i === step ? "on" : ""} />
+        ))}
       </div>
-      <p style={{ color: color.signalAmber, marginTop: 4 }}>{session.user.streak} day streak</p>
-      <p style={{ fontSize: 40, fontVariantNumeric: "tabular-nums", margin: "24px 0" }}>
-        {atStake.toLocaleString()} pts at stake
-      </p>
-      {inviteNote ? <p style={{ color: color.signalAmber }}>{inviteNote}</p> : null}
-      <article style={ui.card}>
-        <p style={{ letterSpacing: "0.2em", fontSize: 11, margin: 0 }}>NEXT UP</p>
-        <h2 style={{ fontFamily: "Iowan Old Style, Palatino, serif", fontWeight: 400, fontSize: 24 }}>
-          {next?.spec.title ?? "Nothing locked yet."}
-        </h2>
-        <p style={{ fontSize: 36, fontVariantNumeric: "tabular-nums", margin: "8px 0" }}>
-          {next ? next.spec.stake.amount.minor.toLocaleString() : "—"}
-        </p>
-        <p style={{ opacity: 0.7, margin: 0 }}>
-          {next ? next.state.replaceAll("_", " ") : "A sealed card will live here."}
-        </p>
-      </article>
-      {err ? <p style={ui.err}>{err}</p> : null}
-      <button type="button" style={ui.ghostBtn} onClick={onCreate}>
-        What are you committing to?
+      <button
+        type="button"
+        className="btn btn-lock"
+        onClick={() => {
+          if (step < slides.length - 1) setStep(step + 1);
+          else onDone();
+        }}
+      >
+        {step < slides.length - 1 ? "Next" : "Let's go"}
       </button>
-    </section>
-  );
-}
-
-function CreateScreen({
-  api,
-  onLocked,
-}: {
-  api: ReturnType<typeof createBrowserApi>;
-  onLocked: () => void;
-}) {
-  const [utterance, setUtterance] = useState("");
-  const [rendered, setRendered] = useState("");
-  const [assumptions, setAssumptions] = useState<string[]>([]);
-  const [spec, setSpec] = useState<unknown>(null);
-  const [shareUrl, setShareUrl] = useState("");
-  const [err, setErr] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  async function parse() {
-    setErr("");
-    setBusy(true);
-    setShareUrl("");
-    try {
-      const body = await api.parse(utterance);
-      if ("blocked" in body && body.blocked) {
-        setSpec(null);
-        setRendered("");
-        setAssumptions([]);
-        setErr(body.message);
-        return;
-      }
-      if (!("spec" in body) || !body.spec) {
-        setErr("message" in body && body.message ? body.message : "Could not parse that.");
-        return;
-      }
-      setSpec(body.spec);
-      setRendered(body.rendered);
-      setAssumptions(body.assumptions ?? []);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Parse failed.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function lock() {
-    if (!spec) return;
-    setErr("");
-    setBusy(true);
-    try {
-      const created = await api.createCommitment(spec);
-      const invited = await api.invite(created.id);
-      await api.fund(created.id);
-      setShareUrl(invited.shareUrl);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Could not lock the card.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <section>
-      <h1 style={ui.display}>Say it once.</h1>
-      <textarea
-        placeholder="Gym by 6:30 tomorrow or I owe Ryan 2500 points"
-        style={ui.area}
-        value={utterance}
-        onChange={(e) => setUtterance(e.target.value)}
-      />
-      <button type="button" style={ui.ghostBtn} disabled={busy || utterance.trim().length < 8} onClick={() => void parse()}>
-        Parse
-      </button>
-      {rendered ? (
-        <article style={{ ...ui.card, marginTop: 24 }}>
-          <p style={{ letterSpacing: "0.2em", fontSize: 11, margin: 0 }}>THE CARD</p>
-          <h2 style={{ fontFamily: "Iowan Old Style, Palatino, serif", fontWeight: 400 }}>{rendered}</h2>
-          {assumptions.map((a) => (
-            <p key={a} style={{ color: "#8a5a00", margin: "8px 0 0" }}>
-              I assumed: {a}
-            </p>
-          ))}
-          <button type="button" style={{ ...ui.solidBtn, marginTop: 16 }} disabled={busy} onClick={() => void lock()}>
-            Lock it
-          </button>
-        </article>
-      ) : null}
-      {shareUrl ? (
-        <p style={{ marginTop: 20 }}>
-          Locked. Share this:{" "}
-          <a href={shareUrl} style={{ color: color.paper }}>
-            {shareUrl}
-          </a>
-          <button type="button" style={{ ...ui.ghostBtn, marginLeft: 12 }} onClick={onLocked}>
-            Back home
-          </button>
-        </p>
-      ) : null}
-      {err ? <p style={ui.err}>{err}</p> : null}
-    </section>
-  );
-}
-
-function FeedScreen({ api }: { api: ReturnType<typeof createBrowserApi> }) {
-  const [items, setItems] = useState<Array<Record<string, unknown>>>([]);
-  const [err, setErr] = useState("");
-
-  useEffect(() => {
-    void api
-      .feed()
-      .then(setItems)
-      .catch((e) => setErr(e instanceof Error ? e.message : "Feed failed."));
-  }, [api]);
-
-  if (err) return <p style={ui.err}>{err}</p>;
-  if (items.length === 0) {
-    return <p style={{ fontSize: 20, lineHeight: 1.4 }}>When a friend locks something, it lands here.</p>;
-  }
-
-  return (
-    <section>
-      <p style={ui.kicker}>Feed</p>
-      <h1 style={ui.display}>What’s locked.</h1>
-      {items.map((item, i) => (
-        <article key={String(item.id ?? i)} style={{ ...ui.card, marginBottom: 12 }}>
-          <p style={{ letterSpacing: "0.16em", fontSize: 11, margin: 0 }}>{String(item.type ?? "update")}</p>
-          <p style={{ fontSize: 20, margin: "8px 0 0" }}>{String(item.title ?? item.actor ?? item.id ?? "Update")}</p>
-        </article>
-      ))}
-    </section>
-  );
-}
-
-function GroupsScreen({ api }: { api: ReturnType<typeof createBrowserApi> }) {
-  const [groups, setGroups] = useState<GroupRow[]>([]);
-  const [name, setName] = useState("");
-  const [err, setErr] = useState("");
-
-  async function refresh() {
-    setGroups(await api.groups());
-  }
-
-  useEffect(() => {
-    void refresh().catch((e) => setErr(e instanceof Error ? e.message : "Groups failed."));
-  }, []);
-
-  async function create() {
-    setErr("");
-    try {
-      await api.createGroup(name);
-      setName("");
-      await refresh();
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Could not create the group.");
-    }
-  }
-
-  return (
-    <section>
-      <h1 style={ui.display}>Groups of 3–8.</h1>
-      <p style={{ opacity: 0.75 }}>Forfeits go to charity, never the pot.</p>
-      <input placeholder="Studio crew" style={ui.field} value={name} onChange={(e) => setName(e.target.value)} />
-      <button type="button" style={ui.ghostBtn} disabled={!name.trim()} onClick={() => void create()}>
-        Start a group
-      </button>
-      {groups.map((g) => (
-        <article key={g.id} style={{ ...ui.card, marginTop: 16 }}>
-          <p style={{ fontSize: 20, margin: 0 }}>{g.name}</p>
-          <p style={{ opacity: 0.7, margin: "8px 0 0" }}>{g.memberIds.length} member{g.memberIds.length === 1 ? "" : "s"}</p>
-        </article>
-      ))}
-      {err ? <p style={ui.err}>{err}</p> : null}
-    </section>
-  );
-}
-
-function ProfileScreen({
-  api,
-  session,
-  onSignOut,
-}: {
-  api: ReturnType<typeof createBrowserApi>;
-  session: AuthSession;
-  onSignOut: () => void;
-}) {
-  const [name, setName] = useState(session.user.displayName);
-  const [friend, setFriend] = useState("");
-  const [note, setNote] = useState("");
-  const [err, setErr] = useState("");
-
-  async function save() {
-    setErr("");
-    try {
-      await api.updateMe({ displayName: name });
-      const current = loadSession();
-      if (current) saveSession({ ...current, user: { ...current.user, displayName: name } });
-      setNote("Saved.");
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Could not save.");
-    }
-  }
-
-  async function addFriend() {
-    setErr("");
-    try {
-      await api.addFriend(friend);
-      setFriend("");
-      setNote("Friend added.");
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "No user with that email yet.");
-    }
-  }
-
-  return (
-    <section>
-      <p style={{ fontSize: 64, fontVariantNumeric: "tabular-nums", margin: 0 }}>{session.user.score}</p>
-      <p style={{ marginTop: 0 }}>Accountability score</p>
-      <p style={{ opacity: 0.7 }}>{session.user.email}</p>
-      <input style={ui.field} value={name} onChange={(e) => setName(e.target.value)} />
-      <button type="button" style={ui.ghostBtn} onClick={() => void save()}>
-        Update name
-      </button>
-      <h2 style={{ ...ui.display, fontSize: 24, marginTop: 40 }}>Add a friend</h2>
-      <input
-        placeholder="friend@babson.edu"
-        style={ui.field}
-        value={friend}
-        onChange={(e) => setFriend(e.target.value)}
-      />
-      <button type="button" style={ui.ghostBtn} disabled={!friend.includes("@")} onClick={() => void addFriend()}>
-        Add
-      </button>
-      {note ? <p style={{ color: color.signalAmber }}>{note}</p> : null}
-      {err ? <p style={ui.err}>{err}</p> : null}
-      <button type="button" style={{ ...ui.ghostBtn, display: "block" }} onClick={onSignOut}>
-        Sign out
-      </button>
-      <a href="/ops" style={{ ...ui.ghostBtn, marginTop: 32, textDecoration: "none" }}>
-        Ops console
-      </a>
     </section>
   );
 }

@@ -117,6 +117,15 @@ export const commitmentSpecSchema = z.object({
     needs_disambiguation: z.array(z.string()),
     safety_flags: z.array(z.string()),
     feasibility: z.object({ score: z.number(), warnings: z.array(z.string()) }),
+    blind: z.boolean().optional(),
+    streakInsurance: z.boolean().optional(),
+    stakeMode: z.enum(["points", "charity", "peer"]).optional(),
+    charityId: z.string().optional(),
+    escalationLadder: z.array(z.number().int().positive()).optional(),
+    chainNextStakeMinor: z.number().int().positive().optional(),
+    standing: z.boolean().optional(),
+    protocolId: z.string().optional(),
+    proposedBy: z.string().uuid().optional(),
   }),
 });
 

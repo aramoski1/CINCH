@@ -40,12 +40,12 @@ describe("rules + renderer", () => {
   it("evaluates AND truth table", () => {
     const spec = gymSpec();
     const enter = leafKey("location.enter", {
-      place: "Babson Recreation Center",
+      place: "the gym",
       radius_m: 100,
       before: "06:30",
     });
     const dwell = leafKey("location.dwell", {
-      place: "Babson Recreation Center",
+      place: "the gym",
       radius_m: 100,
       min_seconds: 2700,
     });
@@ -55,7 +55,7 @@ describe("rules + renderer", () => {
 
   it("renders English", () => {
     const text = renderRule(gymSpec().conditions);
-    expect(text).toMatch(/get to Babson Recreation Center/i);
+    expect(text).toMatch(/get to the gym/i);
     expect(text).toMatch(/45 minutes/i);
   });
 });

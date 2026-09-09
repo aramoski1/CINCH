@@ -34,15 +34,7 @@ export async function registerAuth(app: FastifyInstance) {
 
     let user = [...store.users.values()].find((u) => u.email === email);
     if (!user) {
-      user = {
-        id: newId(),
-        email,
-        displayName: displayName ?? email.split("@")[0] ?? "Friend",
-        score: 500,
-        streak: 0,
-      };
-      store.users.set(user.id, user);
-      store.wallet(user.id);
+      user = store.newUser(email, displayName ?? email.split("@")[0] ?? "Friend");
     }
     const token = newId();
     const refresh = newId();
