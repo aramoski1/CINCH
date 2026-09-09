@@ -1,12 +1,28 @@
 # Cinch
 
-Start with `docs/SETUP.md`. Then `docs/prd.md` -- **Appendix A governs the v0 build.**
+Keep your word. A friend holds you to it. Points, not money.
 
 v0 uses three credentials: Supabase, Anthropic, GitHub. Nothing else.
+Appendix A in `docs/prd.md` governs the build.
 
-## Order of operations
-1. Create the Supabase project, Anthropic keys, and GitHub PAT yourself
-2. Fill in `.env` and the three `.env.local` files
-3. `pnpm install`
-4. `git add -A && git status` -- confirm NO .env or .env.local appear
-5. Hand Phase 0 to the agent, one phase at a time
+The live product is the phone web app: **Now / Promise / You**.
+
+## Run it locally
+
+```bash
+corepack pnpm install
+corepack pnpm --filter @cinch/api start
+corepack pnpm --filter @cinch/web dev
+```
+
+- Web: http://localhost:3000
+- API: http://localhost:4000
+
+The API is Fastify. It is not on Vercel. Vercel only hosts the website.
+Until the API has a public URL, sign-in only works on the machine running port 4000.
+
+## Setup
+
+First-time keys and Supabase: `docs/SETUP.md`.
+
+Never put secrets in `.env.example` or commit `.env` / `.env.local`.

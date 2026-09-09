@@ -135,7 +135,7 @@ If that last command hangs, you've got the pooler URL in `DIRECT_URL`. It has to
 ## Step 10 — Drop in the PRD and commit
 
 ```bash
-# copy cinch-prd.md -> docs/prd.md
+# PRD already lives at docs/prd.md
 git add -A && git status
 ```
 
