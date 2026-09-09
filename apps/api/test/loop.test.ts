@@ -317,6 +317,13 @@ describe("commitment loop", () => {
     expect(refused.statusCode).toBe(400);
 
     const nonce = await app.inject({ method: "POST", url: "/v1/evidence/nonce", headers: auth });
+    const junk = await app.inject({
+      method: "POST",
+      url: `/v1/commitments/${id}/proof`,
+      headers: auth,
+      payload: { nonce: "not-a-real-photo-nonce", data: "not-an-image-just-text-padding-ok" },
+    });
+    expect(junk.statusCode).toBe(400);
     const proof = await app.inject({
       method: "POST",
       url: `/v1/commitments/${id}/proof`,

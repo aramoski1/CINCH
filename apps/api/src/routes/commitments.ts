@@ -13,6 +13,7 @@ import {
 import { classifySafety, parseUtterance } from "@cinch/ai";
 import { BABSON_PLACES, createMemoryQueue, createPointsStakeProvider } from "@cinch/adapters";
 import { applyHorizon, applyInsurance, newId, store } from "../store";
+import { assertProofPasses, parseImageDataUrl, reviewCommitmentPhoto } from "../review-proof";
 import { requireUser } from "./auth";
 import { applyStakeMode, assertCanFund } from "./product";
 import type { Env } from "../config/env";
@@ -390,7 +391,9 @@ export async function registerCommitments(app: FastifyInstance, env: Env) {
       })
       .parse(req.body);
     if (store.usedNonces.has(body.nonce)) throw badRequest("That photo was already used.");
-    if (!body.data.startsWith("data:image/")) throw badRequest("Need a photo.");
+    parseImageDataUrl(body.data);
+    const review = await reviewCommitmentPhoto(env, row.spec.title, body.data);
+    assertProofPasses(review);
     store.usedNonces.add(body.nonce);
     const list = store.evidence.get(id) ?? [];
     list.push({
@@ -398,12 +401,21 @@ export async function registerCommitments(app: FastifyInstance, env: Env) {
       commitmentId: id,
       kind: "photo",
       at: new Date().toISOString(),
-      payload: { data: body.data, userId: user.id },
+      payload: { data: body.data, userId: user.id, score: review?.score, rationale: review?.rationale },
     });
+    if (review) {
+      list.push({
+        id: newId(),
+        commitmentId: id,
+        kind: "ai_vision",
+        at: new Date().toISOString(),
+        payload: { score: review.score, rationale: review.rationale, nonce: body.nonce },
+      });
+    }
     store.evidence.set(id, list);
     if (row.state === "scheduled") store.transition(id, "active");
     store.resolve(id, "success");
-    return { ok: true, state: "resolved" };
+    return { ok: true, state: "resolved", score: review?.score ?? null };
   });
 
   app.post("/v1/commitments/:id/kept", async (req) => {

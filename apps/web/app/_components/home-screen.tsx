@@ -7,6 +7,7 @@ import { formatStake, initials, remaining } from "../../lib/format";
 import { compressPhoto } from "../../lib/photo";
 import { Wordmark, face } from "./brand";
 import { Confirm } from "./ui";
+import { ProofCamera } from "./proof-camera";
 import { WeeklySignal, WinShare } from "./signal";
 import { CheckInCard } from "./check-in";
 import { ActivityTrail } from "./activity-trail";
@@ -36,6 +37,7 @@ export function HomeScreen({
   const [miss, setMiss] = useState<CommitmentRow | null>(null);
   const [voiding, setVoiding] = useState<CommitmentRow | null>(null);
   const [shot, setShot] = useState<{ row: CommitmentRow; preview: string } | null>(null);
+  const [cameraFor, setCameraFor] = useState<CommitmentRow | null>(null);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const target = useRef<CommitmentRow | null>(null);
@@ -99,6 +101,11 @@ export function HomeScreen({
 
   async function pickPhoto(row: CommitmentRow) {
     target.current = row;
+    setCameraFor(row);
+  }
+
+  function openLibrary() {
+    setCameraFor(null);
     fileRef.current?.click();
   }
 
@@ -121,6 +128,7 @@ export function HomeScreen({
       const { nonce } = await api.nonce();
       await api.proof(shot.row.id, nonce, shot.preview);
       setShot(null);
+      setErr("");
       onFlash("Proved it");
       await refresh();
     } catch (e) {
@@ -197,8 +205,10 @@ export function HomeScreen({
         className="sr-only"
         type="file"
         accept="image/*"
-        capture="environment"
-        onChange={(e) => void onFile(e.target.files?.[0])}
+        onChange={(e) => {
+          void onFile(e.target.files?.[0]);
+          e.target.value = "";
+        }}
       />
 
       {rows?.map((row, i) => {
@@ -216,7 +226,7 @@ export function HomeScreen({
               <span>{friend} is holding you</span>
               <span className="stake nums">{formatStake(row.spec.stake.amount.minor)}</span>
             </div>
-            <p className="muted mt-3">Private. Photo before zero or {friend} collects.</p>
+            <p className="muted mt-3">Private. Take a live photo of the thing, or they collect.</p>
             {i === 0 ? <CheckInCard api={api} about={row.spec.title} /> : null}
             <div className="stack mt-4">
               <button type="button" className="btn btn-lock" onClick={() => void pickPhoto(row)}>
@@ -264,18 +274,39 @@ export function HomeScreen({
         <ActivityTrail api={api} limit={5} compact />
       </div>
 
+      {cameraFor ? (
+        <ProofCamera
+          title={cameraFor.spec.title}
+          onCapture={(preview) => {
+            setShot({ row: cameraFor, preview });
+            setCameraFor(null);
+          }}
+          onLibrary={openLibrary}
+          onClose={() => setCameraFor(null)}
+        />
+      ) : null}
+
       {shot ? (
         <div className="overlay" role="dialog" aria-modal="true" aria-label="Send proof">
           <div className="sheet">
             <p className="eyebrow">Proof</p>
             <h2>{shot.row.spec.title}</h2>
             <img className="proof" src={shot.preview} alt="Your proof" />
-            <p className="muted">This is the keep. Send it and the bet closes.</p>
+            <p className="muted">We'll check it's you doing the thing — not a screenshot or an old still.</p>
+            {err ? <p className="status status-err" role="alert">{err}</p> : null}
             <div className="stack mt-4">
               <button type="button" className="btn btn-lock" disabled={busy} onClick={() => void sendProof()}>
-                {busy ? "Sending" : "Send proof"}
+                {busy ? "Checking" : "Send proof"}
               </button>
-              <button type="button" className="btn btn-ghost" onClick={() => setShot(null)}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => {
+                  const row = shot.row;
+                  setShot(null);
+                  setCameraFor(row);
+                }}
+              >
                 Retake
               </button>
             </div>

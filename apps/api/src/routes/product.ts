@@ -24,9 +24,10 @@ import {
   type CommitmentSpec,
   type PatternEvent,
 } from "@cinch/commitments";
-import { classifySafety, parseUtterance, phrasePattern, phraseSplit, VISION_PROMPT } from "@cinch/ai";
-import { BABSON_PLACES, createAnthropicModel } from "@cinch/adapters";
+import { classifySafety, parseUtterance, phrasePattern, phraseSplit } from "@cinch/ai";
+import { BABSON_PLACES } from "@cinch/adapters";
 import { applyHorizon, excluded, newId, store } from "../store";
+import { reviewCommitmentPhoto } from "../review-proof";
 import { requireUser } from "./auth";
 import type { Env } from "../config/env";
 
@@ -243,19 +244,15 @@ export async function registerProduct(app: FastifyInstance, env: Env) {
     store.usedNonces.add(body.nonce);
     let score = 55;
     let rationale = "Nonce bound. Scene review skipped — no still attached.";
-    if (body.data && env.ANTHROPIC_API_KEY.startsWith("sk-ant-api")) {
-      const model = createAnthropicModel({
-        apiKey: env.ANTHROPIC_API_KEY,
-        model: env.ANTHROPIC_MODEL,
-        maxTokens: env.ANTHROPIC_MAX_TOKENS,
-      });
-      const reviewed = await model.reviewImage({
-        mediaType: body.mediaType,
-        data: Buffer.from(body.data, "base64"),
-        prompt: `${VISION_PROMPT} The commitment is: ${row.spec.title}.`,
-      });
-      score = reviewed.score;
-      rationale = reviewed.rationale;
+    if (body.data) {
+      const dataUrl = body.data.startsWith("data:")
+        ? body.data
+        : `data:${body.mediaType};base64,${body.data}`;
+      const reviewed = await reviewCommitmentPhoto(env, row.spec.title, dataUrl);
+      if (reviewed) {
+        score = reviewed.score;
+        rationale = reviewed.rationale;
+      }
     }
     const list = store.evidence.get(id) ?? [];
     list.push({

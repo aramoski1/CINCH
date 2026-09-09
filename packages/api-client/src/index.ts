@@ -416,7 +416,7 @@ export class CinchApi {
     });
   }
 
-  async proof(id: string, nonce: string, data: string): Promise<{ ok: true; state: string }> {
+  async proof(id: string, nonce: string, data: string): Promise<{ ok: true; state: string; score: number | null }> {
     return this.request(`/v1/commitments/${id}/proof`, {
       method: "POST",
       body: JSON.stringify({ nonce, data }),

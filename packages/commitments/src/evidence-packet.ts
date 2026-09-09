@@ -111,5 +111,10 @@ function noteFor(row: EvidenceRow): string {
   return row.kind;
 }
 
-export const VISION_PROMPT =
-  "Does this photo show the committed scene (gym, library, or stated place) taken now — not a screenshot, not an old selfie? Reply with score: 0-100 and one sentence.";
+export const VISION_PROMPT = `You check photo proof for a commitment.
+Score 0-100: does this look like a real, current photo of a person completing the stated task?
+Fail (under 70): screenshots, memes, unrelated rooms, old selfies with no task, stock photos, just a face, or anything that does not show the activity.
+Pass: the scene and activity match the commitment and it looks live, not reused.
+Reply exactly:
+score: <number>
+Then one sentence.`;
