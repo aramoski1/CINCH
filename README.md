@@ -18,11 +18,12 @@ corepack pnpm --filter @cinch/web dev
 - Web: http://localhost:3000
 - API: http://localhost:4000
 
-The API is Fastify. It is not on Vercel. Vercel only hosts the website.
-Until the API has a public URL, sign-in only works on the machine running port 4000.
+On Vercel the website and `/v1` API run together. Other phones talk to that same origin.
+Locally you still run both processes above.
 
 ## Setup
 
 First-time keys and Supabase: `docs/SETUP.md`.
 
 Never put secrets in `.env.example` or commit `.env` / `.env.local`.
+Copy the API secrets onto the Vercel project so `/v1` can start.

@@ -10,6 +10,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@cinch/api": "workspace:*",
     "@cinch/api-client": "workspace:*",
     "@cinch/ui": "workspace:*",
     "next": "^15.1.0",

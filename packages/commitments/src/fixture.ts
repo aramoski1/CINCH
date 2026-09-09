@@ -21,8 +21,8 @@ export const gymConditions: RuleNode = {
 };
 
 export function gymSpec(overrides: Partial<CommitmentSpec> = {}): CommitmentSpec {
-  const deadline = new Date(Date.now() + 36 * 60 * 60 * 1000).toISOString();
-  const start = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  const deadline = new Date(Date.UTC(2027, 5, 15, 18, 0, 0)).toISOString();
+  const start = new Date(Date.UTC(2027, 5, 15, 12, 0, 0)).toISOString();
   return {
     version: "1.0",
     title: "Gym by 6:30 AM",

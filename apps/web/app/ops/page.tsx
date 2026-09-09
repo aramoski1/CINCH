@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { apiBase } from "../../lib/api";
 
 export default function OpsPage() {
   const [token, setToken] = useState("");
@@ -8,7 +9,7 @@ export default function OpsPage() {
   const [out, setOut] = useState("");
 
   async function resolve(outcome: "success" | "failure" | "voided") {
-    const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+    const base = apiBase();
     const res = await fetch(`${base}/v1/ops/resolve`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-admin-token": token },

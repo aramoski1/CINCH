@@ -89,6 +89,16 @@ export type LlmToolCall = {
   input: Record<string, unknown>;
 };
 
+export interface EmailOtp {
+  send(email: string): Promise<{ delivered: boolean }>;
+  verify(email: string, code: string): Promise<boolean>;
+}
+
+export interface RuntimeSnapshot {
+  load(): Promise<Record<string, unknown> | null>;
+  save(payload: Record<string, unknown>): Promise<void>;
+}
+
 export interface LanguageModel {
   complete(input: {
     system: string;

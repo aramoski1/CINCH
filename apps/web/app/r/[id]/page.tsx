@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { formatStake } from "../../../lib/format";
+import { apiBase } from "../../../lib/api";
 
 type Receipt = {
   title: string;
@@ -17,7 +18,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
 
   useEffect(() => {
     void params.then(async ({ id }) => {
-      const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+      const base = apiBase();
       try {
         const res = await fetch(`${base}/v1/commitments/${id}/receipt`, { cache: "no-store" });
         if (!res.ok) {

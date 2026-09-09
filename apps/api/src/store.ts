@@ -475,6 +475,80 @@ function isoWeek(now: Date): string {
   return `${t.getUTCFullYear()}-W${week}`;
 }
 
+export function dumpStore(): Record<string, unknown> {
+  return {
+    users: [...users.entries()],
+    sessions: [...sessions.entries()],
+    otps: [...otps.entries()],
+    commitments: [...commitments.entries()],
+    evidence: [...evidence.entries()],
+    wallets: [...wallets.entries()],
+    usedNonces: [...usedNonces],
+    feed: [...feed],
+    friends: [...friends.entries()].map(([id, set]) => [id, [...set]]),
+    notifications: [...notifications],
+    disputes: [...disputes.entries()],
+    groups: [...groups.entries()],
+    audit: [...audit],
+    challenges: [...challenges.entries()],
+    checkins: [...checkins],
+    openQuestion: {
+      ...openQuestion,
+      voted: [...openQuestion.voted],
+    },
+  };
+}
+
+export function loadStore(payload: Record<string, unknown>): void {
+  store.reset();
+  restoreMap(users, payload.users);
+  restoreMap(sessions, payload.sessions);
+  restoreMap(otps, payload.otps);
+  restoreMap(commitments, payload.commitments);
+  restoreMap(evidence, payload.evidence);
+  restoreMap(wallets, payload.wallets);
+  restoreMap(disputes, payload.disputes);
+  restoreMap(groups, payload.groups);
+  restoreMap(challenges, payload.challenges);
+  usedNonces.clear();
+  for (const n of asArray(payload.usedNonces)) usedNonces.add(String(n));
+  feed.length = 0;
+  feed.push(...asArray(payload.feed) as typeof feed);
+  notifications.length = 0;
+  notifications.push(...asArray(payload.notifications) as typeof notifications);
+  audit.length = 0;
+  audit.push(...asArray(payload.audit) as typeof audit);
+  checkins.length = 0;
+  checkins.push(...asArray(payload.checkins) as typeof checkins);
+  friends.clear();
+  for (const row of asArray(payload.friends)) {
+    if (!Array.isArray(row) || row.length < 2) continue;
+    friends.set(String(row[0]), new Set((row[1] as string[]).map(String)));
+  }
+  const oq = payload.openQuestion as OpenQuestionRecord | undefined;
+  if (oq && typeof oq === "object") {
+    openQuestion.id = oq.id ?? openQuestion.id;
+    openQuestion.title = oq.title ?? openQuestion.title;
+    openQuestion.body = oq.body ?? openQuestion.body;
+    openQuestion.votes = oq.votes ?? openQuestion.votes;
+    const votedRaw = (oq as unknown as { voted?: string[] }).voted;
+    openQuestion.voted = new Set(Array.isArray(votedRaw) ? votedRaw : []);
+  }
+}
+
+function restoreMap<K, V>(target: Map<K, V>, raw: unknown): void {
+  target.clear();
+  if (!Array.isArray(raw)) return;
+  for (const row of raw) {
+    if (!Array.isArray(row) || row.length < 2) continue;
+    target.set(row[0] as K, row[1] as V);
+  }
+}
+
+function asArray(raw: unknown): unknown[] {
+  return Array.isArray(raw) ? raw : [];
+}
+
 export function defaultSettings(): UserSettings {
   return {
     leaveNow: true,

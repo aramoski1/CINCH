@@ -1,20 +1,28 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { unauthorized } from "@cinch/shared";
+import { createSupabaseEmailOtp } from "@cinch/adapters";
+import type { Env } from "../config/env";
 import { newId, store } from "../store";
 
-export async function registerAuth(app: FastifyInstance) {
+export async function registerAuth(app: FastifyInstance, env: Env) {
+  const mail = createSupabaseEmailOtp({ url: env.SUPABASE_URL, anonKey: env.SUPABASE_ANON_KEY });
+  const local = env.NODE_ENV !== "production";
+
   app.post("/v1/auth/email", async (req) => {
     const { email } = z.object({ email: z.string().email() }).parse(req.body);
     const existing = store.otps.get(email);
     if (existing && existing.attempts >= 3 && existing.expires > Date.now()) {
       return { ok: true, throttled: true };
     }
+    if (!local) {
+      await mail.send(email);
+      return { ok: true };
+    }
     const code = String(Math.floor(100000 + Math.random() * 900000));
     store.otps.set(email, { code, expires: Date.now() + 5 * 60_000, attempts: 0 });
-    const local = process.env.NODE_ENV !== "production";
-    req.log.info(local ? { email, code } : { email }, "otp issued");
-    return { ok: true, devCode: local ? code : undefined };
+    req.log.info({ email, code }, "otp issued");
+    return { ok: true, devCode: code };
   });
 
   app.post("/v1/auth/verify", async (req) => {
@@ -25,12 +33,17 @@ export async function registerAuth(app: FastifyInstance) {
         displayName: z.string().min(1).optional(),
       })
       .parse(req.body);
-    const otp = store.otps.get(email);
-    if (!otp || otp.expires < Date.now()) throw unauthorized("OTP expired");
-    otp.attempts += 1;
-    if (otp.attempts > 3) throw unauthorized("Too many attempts");
-    if (otp.code !== code) throw unauthorized("Invalid code");
-    store.otps.delete(email);
+    if (local) {
+      const otp = store.otps.get(email);
+      if (!otp || otp.expires < Date.now()) throw unauthorized("OTP expired");
+      otp.attempts += 1;
+      if (otp.attempts > 3) throw unauthorized("Too many attempts");
+      if (otp.code !== code) throw unauthorized("Invalid code");
+      store.otps.delete(email);
+    } else {
+      const ok = await mail.verify(email, code);
+      if (!ok) throw unauthorized("Invalid code");
+    }
 
     let user = [...store.users.values()].find((u) => u.email === email);
     if (!user) {

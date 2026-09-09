@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { gymSpec } from "@cinch/commitments";
 import { buildApp } from "../src/app";
 import { loadEnv, testEnv } from "../src/config/env";
-import { store } from "../src/store";
+import { store, dumpStore, loadStore } from "../src/store";
 
 const env = loadEnv(testEnv);
 
@@ -375,5 +375,15 @@ describe("commitment loop", () => {
     const people = await app.inject({ method: "GET", url: "/v1/people?q=ryan", headers: auth });
     expect((people.json() as Array<{ id: string }>).some((row) => row.id === ryan.user.id)).toBe(true);
     await app.close();
+  });
+
+  it("round-trips the in-memory store through a snapshot", () => {
+    const user = store.newUser("snap@cinch.test", "Snap");
+    store.linkFriends(user.id, user.id);
+    const snap = dumpStore();
+    store.reset();
+    expect(store.users.size).toBe(0);
+    loadStore(snap);
+    expect(store.users.get(user.id)?.email).toBe("snap@cinch.test");
   });
 });

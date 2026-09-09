@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { remaining, initials, formatStake } from "../../../lib/format";
 import { loadSession } from "../../../lib/session";
-import { createBrowserApi } from "../../../lib/api";
+import { createBrowserApi, apiBase } from "../../../lib/api";
 import { Wordmark, face } from "../../_components/brand";
 
 type Invite = {
@@ -35,7 +35,7 @@ export default function InvitePage({ params }: { params: Promise<{ code: string 
     setAuthed(Boolean(loadSession()));
     void params.then(async ({ code: c }) => {
       setCode(c);
-      const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+      const base = apiBase();
       try {
         const res = await fetch(`${base}/v1/invites/${c}`, { cache: "no-store" });
         if (!res.ok) {

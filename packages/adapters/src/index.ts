@@ -1,4 +1,7 @@
 export { createAnonClient, createServiceClient, type SupabaseEnv } from "./supabase";
+export { createSupabaseEmailOtp } from "./email-otp";
+export { createRuntimeSnapshot } from "./runtime-snapshot";
+export { ensureRuntimeTable } from "./ensure-runtime";
 export {
   createTableAnalytics,
   createTableErrorReporter,
