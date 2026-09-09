@@ -239,7 +239,7 @@ export class CinchApi {
     return this.request<HealthResponse>("/v1/health");
   }
 
-  async requestEmailCode(email: string): Promise<{ ok: true; throttled?: boolean; devCode?: string }> {
+  async requestEmailCode(email: string): Promise<{ ok: true; throttled?: boolean; exists?: boolean; devCode?: string }> {
     return this.request("/v1/auth/email", {
       method: "POST",
       body: JSON.stringify({ email }),

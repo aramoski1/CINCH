@@ -28,12 +28,16 @@ export function createSupabaseEmailOtp(env: { url: string; anonKey: string }): E
       return { delivered: true };
     },
     async verify(email, code) {
-      const { error } = await client.auth.verifyOtp({
-        email,
-        token: code,
-        type: "email",
-      });
-      return !error;
+      const types = ["email", "magiclink", "signup"] as const;
+      for (const type of types) {
+        const { error } = await client.auth.verifyOtp({
+          email,
+          token: code,
+          type,
+        });
+        if (!error) return true;
+      }
+      return false;
     },
     async consumeLink(input) {
       if (input.accessToken) {
@@ -42,15 +46,22 @@ export function createSupabaseEmailOtp(env: { url: string; anonKey: string }): E
         return { email: data.user.email, displayName: displayNameOf(data.user) };
       }
       if (input.tokenHash) {
-        const type = (input.type === "signup" || input.type === "magiclink" || input.type === "email"
-          ? input.type
-          : "email") as "signup" | "magiclink" | "email";
-        const { data, error } = await client.auth.verifyOtp({
-          token_hash: input.tokenHash,
-          type,
-        });
-        if (error || !data.user?.email) return null;
-        return { email: data.user.email, displayName: displayNameOf(data.user) };
+        const types = (
+          input.type === "signup" || input.type === "magiclink" || input.type === "email"
+            ? [input.type, "email", "magiclink", "signup"]
+            : ["email", "magiclink", "signup"]
+        ) as Array<"signup" | "magiclink" | "email">;
+        const tried = new Set<string>();
+        for (const type of types) {
+          if (tried.has(type)) continue;
+          tried.add(type);
+          const { data, error } = await client.auth.verifyOtp({
+            token_hash: input.tokenHash,
+            type,
+          });
+          if (error || !data.user?.email) continue;
+          return { email: data.user.email, displayName: displayNameOf(data.user) };
+        }
       }
       return null;
     },

@@ -250,6 +250,7 @@ function AuthScreen({
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [devCode, setDevCode] = useState<string | null>(null);
+  const [returning, setReturning] = useState(false);
   const [stage, setStage] = useState<"email" | "otp">("email");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -261,6 +262,7 @@ function AuthScreen({
       const res = await api.requestEmailCode(email);
       if (res.throttled) return setErr("Wait a minute, then try again.");
       setDevCode(res.devCode ?? null);
+      setReturning(Boolean(res.exists));
       setStage("otp");
     } catch {
       setErr("Can't reach Cinch.");
@@ -273,9 +275,15 @@ function AuthScreen({
     setErr("");
     setBusy(true);
     try {
-      onSession(await api.verifyEmail({ email, code, displayName: name || undefined }));
+      onSession(
+        await api.verifyEmail({
+          email,
+          code,
+          displayName: returning ? undefined : name || undefined,
+        }),
+      );
     } catch {
-      setErr("That code didn't match.");
+      setErr("That code didn't match. Request a new email and try again.");
     } finally {
       setBusy(false);
     }
@@ -286,13 +294,23 @@ function AuthScreen({
       <Wordmark size={52} />
       {stage === "email" ? (
         <>
-          <h1 className="hero">Make it real,<br /><em>then make it happen.</em></h1>
+          <h1 className="hero">
+            {expired ? (
+              <>
+                Welcome back.<br /><em>Sign in to keep going.</em>
+              </>
+            ) : (
+              <>
+                Make it real,<br /><em>then make it happen.</em>
+              </>
+            )}
+          </h1>
           <p className="lede">
             {expired
-              ? "Sign in again. The last session ended when the server restarted."
+              ? "Same email as last time. We'll send a link so you land back in your account."
               : inviteCode
                 ? "Someone asked you to hold them to a promise. Sign in only if you need to."
-                : "A private pact with a friend who cares enough to notice. Points on the line. Photo proof, or they collect."}
+                : "Sign in with your email. New here? That first link creates your account. Coming back? Same step, same account."}
           </p>
           <div className="pitch">
             <article>
@@ -319,34 +337,54 @@ function AuthScreen({
           />
           {err ? <p className="status status-err" role="alert">{err}</p> : null}
           <button type="button" className="btn btn-lock mt-4" disabled={busy || !email.includes("@")} onClick={() => void send()}>
-            {busy ? "Sending" : "Send a code"}
+            {busy ? "Sending" : "Sign in"}
           </button>
-          <p className="muted center mt-4">Points only. The house never takes a cut.</p>
+          <p className="muted center mt-4">No password. We email you a link each time.</p>
         </>
       ) : (
         <>
-          <h1 className="hero">Check your email.</h1>
+          <h1 className="hero">{returning ? "Welcome back." : "Check your email."}</h1>
           {devCode ? (
             <p className="ok nums otp">{devCode}</p>
           ) : (
-            <p className="muted">Open the link on this phone. If the email also has six digits, you can type those instead.</p>
+            <p className="muted">
+              {returning
+                ? "Open the link on this phone to get back in. If the email has a code, you can type that instead."
+                : "Open the link on this phone to create your account. If the email has a code, you can type that instead."}
+            </p>
           )}
           <label className="sr-only" htmlFor="otp">Code</label>
           <input
             id="otp"
             className="field mt-3"
             inputMode="numeric"
-            maxLength={6}
+            maxLength={8}
             autoComplete="one-time-code"
             placeholder="000000"
             value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
           />
-          <label className="sr-only" htmlFor="name">Name</label>
-          <input id="name" className="field mt-3" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} />
+          {returning ? null : (
+            <>
+              <label className="sr-only" htmlFor="name">Name</label>
+              <input id="name" className="field mt-3" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} />
+            </>
+          )}
           {err ? <p className="status status-err" role="alert">{err}</p> : null}
-          <button type="button" className="btn btn-lock mt-4" disabled={busy || code.length !== 6} onClick={() => void verify()}>
-            Continue
+          <button type="button" className="btn btn-lock mt-4" disabled={busy || code.length < 6} onClick={() => void verify()}>
+            {busy ? "Checking" : returning ? "Sign in" : "Create account"}
+          </button>
+          <button
+            type="button"
+            className="text-btn center mt-4"
+            onClick={() => {
+              setStage("email");
+              setCode("");
+              setDevCode(null);
+              setErr("");
+            }}
+          >
+            Use a different email
           </button>
         </>
       )}

@@ -410,6 +410,29 @@ describe("commitment loop", () => {
     await app.close();
   });
 
+  it("logs back into the same account after a first signup", async () => {
+    const app = await buildApp(env);
+    const first = await signup(app, "Alec@Cinch.test");
+    const secondIssue = await app.inject({
+      method: "POST",
+      url: "/v1/auth/email",
+      payload: { email: "alec@cinch.test" },
+    });
+    const body = secondIssue.json() as { exists?: boolean; devCode: string };
+    expect(body.exists).toBe(true);
+    const second = await app.inject({
+      method: "POST",
+      url: "/v1/auth/verify",
+      payload: { email: "alec@cinch.test", code: body.devCode },
+    });
+    expect(second.statusCode).toBe(200);
+    const replay = second.json() as { token: string; user: { id: string; email: string } };
+    expect(replay.user.id).toBe(first.user.id);
+    expect(replay.user.email).toBe("alec@cinch.test");
+    expect(replay.token).not.toBe(first.token);
+    await app.close();
+  });
+
   it("round-trips the in-memory store through a snapshot", () => {
     const user = store.newUser("snap@cinch.test", "Snap");
     store.linkFriends(user.id, user.id);

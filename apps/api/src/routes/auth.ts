@@ -6,10 +6,22 @@ import type { Env } from "../config/env";
 import { DEMO_CODE, DEMO_NAME, ensureDemoAccount, isDemoEmail } from "../seed-demo";
 import { newId, store } from "../store";
 
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
+function findUserByEmail(email: string) {
+  const key = normalizeEmail(email);
+  return [...store.users.values()].find((u) => u.email.toLowerCase() === key);
+}
+
 function issueSession(email: string, displayName?: string) {
-  let user = [...store.users.values()].find((u) => u.email === email);
+  const key = normalizeEmail(email);
+  let user = findUserByEmail(key);
   if (!user) {
-    user = store.newUser(email, displayName ?? email.split("@")[0] ?? "Friend");
+    user = store.newUser(key, displayName ?? key.split("@")[0] ?? "Friend");
+  } else if (displayName && user.displayName === (user.email.split("@")[0] ?? "Friend")) {
+    user.displayName = displayName;
   }
   const token = newId();
   const refresh = newId();
@@ -26,33 +38,36 @@ export async function registerAuth(app: FastifyInstance, env: Env) {
   const local = env.NODE_ENV !== "production";
 
   app.post("/v1/auth/email", async (req) => {
-    const { email } = z.object({ email: z.string().email() }).parse(req.body);
+    const { email: raw } = z.object({ email: z.string().email() }).parse(req.body);
+    const email = normalizeEmail(raw);
+    const exists = Boolean(findUserByEmail(email));
     if (isDemoEmail(email)) {
       ensureDemoAccount();
-      return { ok: true, devCode: DEMO_CODE };
+      return { ok: true, exists: true, devCode: DEMO_CODE };
     }
     const existing = store.otps.get(email);
     if (existing && existing.attempts >= 3 && existing.expires > Date.now()) {
-      return { ok: true, throttled: true };
+      return { ok: true, throttled: true, exists };
     }
     if (!local) {
       await mail.send(email, authRedirect(env));
-      return { ok: true };
+      return { ok: true, exists };
     }
     const code = String(Math.floor(100000 + Math.random() * 900000));
     store.otps.set(email, { code, expires: Date.now() + 5 * 60_000, attempts: 0 });
     req.log.info({ email, code }, "otp issued");
-    return { ok: true, devCode: code };
+    return { ok: true, exists, devCode: code };
   });
 
   app.post("/v1/auth/verify", async (req) => {
-    const { email, code, displayName } = z
+    const { email: raw, code, displayName } = z
       .object({
         email: z.string().email(),
-        code: z.string().length(6),
+        code: z.string().min(6).max(8),
         displayName: z.string().min(1).optional(),
       })
       .parse(req.body);
+    const email = normalizeEmail(raw);
     if (isDemoEmail(email) && code === DEMO_CODE) {
       const demo = ensureDemoAccount();
       return issueSession(demo.email, displayName ?? DEMO_NAME);
