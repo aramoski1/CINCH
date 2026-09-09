@@ -14,6 +14,18 @@ export async function buildApp(env: Env): Promise<FastifyInstance> {
 
   await app.register(cors, { origin: true });
 
+  app.addContentTypeParser("application/json", { parseAs: "string" }, (req, body, done) => {
+    if (!body) {
+      done(null, {});
+      return;
+    }
+    try {
+      done(null, JSON.parse(body as string));
+    } catch (err) {
+      done(err as Error, undefined);
+    }
+  });
+
   app.get("/v1/health", async () => ({
     ok: true as const,
     service: "cinch-api",

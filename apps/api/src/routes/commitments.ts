@@ -151,6 +151,14 @@ export async function registerCommitments(app: FastifyInstance, env: Env) {
     w.available = amount("POINTS", w.available.minor - row.spec.stake.amount.minor);
     w.reserved = amount("POINTS", w.reserved.minor + row.spec.stake.amount.minor);
     store.transition(row.id, "scheduled");
+    store.feed.unshift({
+      type: "locked",
+      id: row.id,
+      title: row.spec.title,
+      actor: user.displayName,
+      stake: row.spec.stake.amount,
+      at: new Date().toISOString(),
+    });
     await queue.schedule("commitment.start", { id: row.id }, new Date(row.spec.schedule.start_at ?? Date.now()));
     await queue.schedule("commitment.deadline", { id: row.id }, new Date(row.spec.schedule.deadline_at));
     return { state: "scheduled", reservationId };

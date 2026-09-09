@@ -44,6 +44,7 @@ describe("commitment loop", () => {
       headers: auth,
     });
     expect(invited.statusCode).toBe(200);
+    expect(invited.json()).toMatchObject({ inviteCode: expect.any(String), shareUrl: expect.stringContaining("/i/") });
 
     const funded = await app.inject({
       method: "POST",

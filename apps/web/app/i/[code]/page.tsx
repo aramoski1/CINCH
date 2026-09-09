@@ -6,6 +6,7 @@ async function loadInvite(code: string) {
     const res = await fetch(`${base}/v1/invites/${code}`, { cache: "no-store" });
     if (!res.ok) return null;
     return (await res.json()) as {
+      id: string;
       title: string;
       rendered: string;
       stake: { currency: string; minor: number };
@@ -61,7 +62,7 @@ export default async function InvitePage({ params }: { params: Promise<{ code: s
           {(invite?.assumptions ?? []).join(" · ") || "Full terms visible. No signup gate."}
         </p>
         <a
-          href={`cinch://invite/${code}`}
+          href={`/?invite=${code}`}
           style={{
             display: "block",
             marginTop: 28,
@@ -74,6 +75,19 @@ export default async function InvitePage({ params }: { params: Promise<{ code: s
           }}
         >
           Hold them to it
+        </a>
+        <a
+          href={`cinch://invite/${code}`}
+          style={{
+            display: "block",
+            marginTop: 12,
+            textAlign: "center",
+            color: color.ink,
+            opacity: 0.55,
+            fontSize: 13,
+          }}
+        >
+          Open in the iOS app
         </a>
       </article>
     </main>

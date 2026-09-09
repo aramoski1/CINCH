@@ -151,6 +151,12 @@ export async function registerSocial(app: FastifyInstance, env: Env) {
     if (row.state === "scheduled") store.transition(id, "active");
     store.transition(id, outcome);
     store.transition(id, "resolved");
+    store.feed.unshift({
+      type: "resolved",
+      id,
+      outcome,
+      at: new Date().toISOString(),
+    });
     return { ok: true, state: "resolved" };
   });
 
@@ -164,11 +170,13 @@ export async function registerSocial(app: FastifyInstance, env: Env) {
     const row = [...store.commitments.values()].find((c) => c.inviteCode === code);
     if (!row) throw notFound();
     return {
+      id: row.id,
       title: row.spec.title,
       rendered: row.spec.natural_language,
       stake: row.spec.stake.amount,
       assumptions: row.spec.meta.assumptions,
       inviteCode: code,
+      state: row.state,
     };
   });
 }

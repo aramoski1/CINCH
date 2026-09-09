@@ -12,8 +12,9 @@ export async function registerAuth(app: FastifyInstance) {
     }
     const code = String(Math.floor(100000 + Math.random() * 900000));
     store.otps.set(email, { code, expires: Date.now() + 5 * 60_000, attempts: 0 });
-    req.log.info({ email }, "otp issued");
-    return { ok: true, devCode: process.env.NODE_ENV === "test" ? code : undefined };
+    const local = process.env.NODE_ENV !== "production";
+    req.log.info(local ? { email, code } : { email }, "otp issued");
+    return { ok: true, devCode: local ? code : undefined };
   });
 
   app.post("/v1/auth/verify", async (req) => {
