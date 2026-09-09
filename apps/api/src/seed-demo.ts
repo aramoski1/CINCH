@@ -3,6 +3,7 @@ import { amount } from "@cinch/shared";
 import { applyHorizon, newId, store, type UserRecord } from "./store";
 
 export const DEMO_EMAIL = "demo@cinch.app";
+export const OWNER_DEMO_EMAIL = "alecramoski@gmail.com";
 export const DEMO_CODE = "246810";
 export const DEMO_NAME = "Alec";
 
@@ -12,12 +13,25 @@ const FRIENDS = [
   { email: "jules.demo@cinch.app", name: "Jules", score: 640, streak: 1 },
 ] as const;
 
-export function isDemoEmail(email: string): boolean {
-  return email.trim().toLowerCase() === DEMO_EMAIL;
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
 }
 
-export function ensureDemoAccount(): UserRecord {
-  const alec = upsertUser(DEMO_EMAIL, DEMO_NAME);
+export function isCodeDemoEmail(email: string): boolean {
+  return normalizeEmail(email) === DEMO_EMAIL;
+}
+
+export function isSeededDemoEmail(email: string): boolean {
+  const key = normalizeEmail(email);
+  return key === DEMO_EMAIL || key === OWNER_DEMO_EMAIL;
+}
+
+export function isDemoEmail(email: string): boolean {
+  return isCodeDemoEmail(email);
+}
+
+export function ensureDemoAccount(email: string = DEMO_EMAIL): UserRecord {
+  const alec = upsertUser(normalizeEmail(email), DEMO_NAME);
   const ryan = upsertUser(FRIENDS[0].email, FRIENDS[0].name);
   const maya = upsertUser(FRIENDS[1].email, FRIENDS[1].name);
   const jules = upsertUser(FRIENDS[2].email, FRIENDS[2].name);
@@ -109,17 +123,19 @@ export function ensureDemoAccount(): UserRecord {
     reserved: amount("POINTS", reserved),
   });
 
-  store.audit.push({ type: "demo-seed", userId: alec.id, at: new Date().toISOString() });
+  store.audit.push({ type: "demo-seed", userId: alec.id, email: alec.email, at: new Date().toISOString() });
   return alec;
 }
 
 function upsertUser(email: string, displayName: string): UserRecord {
-  const existing = [...store.users.values()].find((u) => u.email === email);
+  const key = email.trim().toLowerCase();
+  const existing = [...store.users.values()].find((u) => u.email.toLowerCase() === key);
   if (existing) {
     existing.displayName = displayName;
+    existing.email = key;
     return existing;
   }
-  return store.newUser(email, displayName);
+  return store.newUser(key, displayName);
 }
 
 function paintUser(

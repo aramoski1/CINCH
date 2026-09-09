@@ -3,7 +3,7 @@ import { z } from "zod";
 import { unauthorized } from "@cinch/shared";
 import { createSupabaseEmailOtp } from "@cinch/adapters";
 import type { Env } from "../config/env";
-import { DEMO_CODE, DEMO_NAME, ensureDemoAccount, isDemoEmail } from "../seed-demo";
+import { DEMO_CODE, DEMO_NAME, ensureDemoAccount, isCodeDemoEmail, isSeededDemoEmail } from "../seed-demo";
 import { newId, store } from "../store";
 
 function normalizeEmail(email: string) {
@@ -17,6 +17,13 @@ function findUserByEmail(email: string) {
 
 function issueSession(email: string, displayName?: string) {
   const key = normalizeEmail(email);
+  if (isSeededDemoEmail(key)) {
+    const seeded = ensureDemoAccount(key);
+    const token = newId();
+    const refresh = newId();
+    store.sessions.set(token, { token, refresh, userId: seeded.id });
+    return { token, refresh, user: seeded };
+  }
   let user = findUserByEmail(key);
   if (!user) {
     user = store.newUser(key, displayName ?? key.split("@")[0] ?? "Friend");
@@ -41,8 +48,8 @@ export async function registerAuth(app: FastifyInstance, env: Env) {
     const { email: raw } = z.object({ email: z.string().email() }).parse(req.body);
     const email = normalizeEmail(raw);
     const exists = Boolean(findUserByEmail(email));
-    if (isDemoEmail(email)) {
-      ensureDemoAccount();
+    if (isCodeDemoEmail(email)) {
+      ensureDemoAccount(email);
       return { ok: true, exists: true, devCode: DEMO_CODE };
     }
     const existing = store.otps.get(email);
@@ -68,8 +75,8 @@ export async function registerAuth(app: FastifyInstance, env: Env) {
       })
       .parse(req.body);
     const email = normalizeEmail(raw);
-    if (isDemoEmail(email) && code === DEMO_CODE) {
-      const demo = ensureDemoAccount();
+    if (isCodeDemoEmail(email) && code === DEMO_CODE) {
+      const demo = ensureDemoAccount(email);
       return issueSession(demo.email, displayName ?? DEMO_NAME);
     }
     if (local) {

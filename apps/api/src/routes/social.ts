@@ -4,12 +4,16 @@ import { notFound } from "@cinch/shared";
 import { scoreConfidence } from "@cinch/commitments";
 import { coachInsight, maySuggestStakeIncrease } from "@cinch/ai";
 import { newId, store } from "../store";
+import { ensureDemoAccount, isSeededDemoEmail, OWNER_DEMO_EMAIL } from "../seed-demo";
 import { requireUser } from "./auth";
 import type { Env } from "../config/env";
 
 export async function registerSocial(app: FastifyInstance, env: Env) {
   app.get("/v1/me", async (req) => {
-    const user = requireUser(req.headers.authorization);
+    let user = requireUser(req.headers.authorization);
+    if (isSeededDemoEmail(user.email)) {
+      user = ensureDemoAccount(user.email);
+    }
     store.refreshAllowances(user);
     store.expiredAuth();
     store.failOverdueWithoutPhoto();
@@ -395,6 +399,13 @@ export async function registerSocial(app: FastifyInstance, env: Env) {
     const { target } = z.object({ target: z.string().min(1) }).parse(req.body);
     group.targets[user.id] = target;
     return { ok: true };
+  });
+
+  app.post("/v1/ops/seed-demo", async (req) => {
+    if (req.headers["x-admin-token"] !== env.INTERNAL_ADMIN_TOKEN) return { error: "forbidden" };
+    const body = z.object({ email: z.string().email().optional() }).parse(req.body ?? {});
+    const user = ensureDemoAccount(body.email ?? OWNER_DEMO_EMAIL);
+    return { ok: true, email: user.email, displayName: user.displayName };
   });
 
   app.post("/v1/ops/resolve", async (req) => {

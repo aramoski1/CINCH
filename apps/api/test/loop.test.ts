@@ -417,6 +417,31 @@ describe("commitment loop", () => {
     await app.close();
   });
 
+  it("fills the Gmail owner account with demo data", async () => {
+    const app = await buildApp(env);
+    const issued = await app.inject({
+      method: "POST",
+      url: "/v1/auth/email",
+      payload: { email: "alecramoski@gmail.com" },
+    });
+    const { devCode } = issued.json() as { devCode: string };
+    expect(devCode).toBeTruthy();
+    const verified = await app.inject({
+      method: "POST",
+      url: "/v1/auth/verify",
+      payload: { email: "alecramoski@gmail.com", code: devCode, displayName: "Alec" },
+    });
+    expect(verified.statusCode).toBe(200);
+    const { token, user } = verified.json() as { token: string; user: { email: string; displayName: string } };
+    expect(user).toMatchObject({ email: "alecramoski@gmail.com", displayName: "Alec" });
+    const auth = { authorization: `Bearer ${token}` };
+    const active = await app.inject({ method: "GET", url: "/v1/commitments/active", headers: auth });
+    expect((active.json() as unknown[]).length).toBeGreaterThan(0);
+    const friends = await app.inject({ method: "GET", url: "/v1/friends", headers: auth });
+    expect((friends.json() as { people: unknown[] }).people.length).toBeGreaterThanOrEqual(3);
+    await app.close();
+  });
+
   it("logs back into the same account after a first signup", async () => {
     const app = await buildApp(env);
     const first = await signup(app, "Alec@Cinch.test");
