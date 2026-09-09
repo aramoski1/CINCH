@@ -404,7 +404,7 @@ export async function registerSocial(app: FastifyInstance, env: Env) {
   app.post("/v1/ops/seed-demo", async (req) => {
     if (req.headers["x-admin-token"] !== env.INTERNAL_ADMIN_TOKEN) return { error: "forbidden" };
     const body = z.object({ email: z.string().email().optional() }).parse(req.body ?? {});
-    const user = ensureDemoAccount(body.email ?? OWNER_DEMO_EMAIL);
+    const user = ensureDemoAccount(body.email ?? OWNER_DEMO_EMAIL, { force: true });
     return { ok: true, email: user.email, displayName: user.displayName };
   });
 
@@ -430,10 +430,12 @@ export async function registerSocial(app: FastifyInstance, env: Env) {
     const mine = [...store.commitments.values()].filter((c) => c.spec.committer_id === user.id);
     const withPartners = mine.filter((c) => c.spec.partners.length > 0);
     const solo = mine.filter((c) => c.spec.partners.length === 0);
-    const kept = (rows: typeof mine) =>
-      rows.filter((c) => c.state === "success" || (c.state === "resolved" && store.audit.some((a) => a.commitmentId === c.id && a.to === "success"))).length;
-    const partnerRate = withPartners.length ? Math.round((kept(withPartners) / withPartners.length) * 100) : 91;
-    const soloRate = solo.length ? Math.round((kept(solo) / Math.max(1, solo.length)) * 100) : 54;
+    const kept = (rows: typeof mine) => rows.filter((c) => c.outcome === "success").length;
+    const tried = (rows: typeof mine) => rows.filter((c) => c.outcome === "success" || c.outcome === "failure");
+    const partnerTried = tried(withPartners);
+    const soloTried = tried(solo);
+    const partnerRate = partnerTried.length ? Math.round((kept(withPartners) / partnerTried.length) * 100) : 91;
+    const soloRate = soloTried.length ? Math.round((kept(solo) / soloTried.length) * 100) : 54;
     const insight = coachInsight({
       failedAt: user.lastFailedAt ? new Date(user.lastFailedAt) : undefined,
       now: new Date(),

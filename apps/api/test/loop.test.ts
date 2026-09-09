@@ -21,6 +21,45 @@ async function signup(app: Awaited<ReturnType<typeof buildApp>>, email: string) 
   return verified.json() as { token: string; user: { id: string } };
 }
 
+async function expectPopulatedWorld(
+  app: Awaited<ReturnType<typeof buildApp>>,
+  auth: { authorization: string },
+) {
+  const active = await app.inject({ method: "GET", url: "/v1/commitments/active", headers: auth });
+  expect((active.json() as unknown[]).length).toBeGreaterThan(0);
+  const friends = await app.inject({ method: "GET", url: "/v1/friends", headers: auth });
+  expect((friends.json() as { people: unknown[] }).people.length).toBeGreaterThanOrEqual(3);
+  const watching = await app.inject({ method: "GET", url: "/v1/watching", headers: auth });
+  expect((watching.json() as unknown[]).length).toBeGreaterThan(0);
+  const ledger = await app.inject({ method: "GET", url: "/v1/ledger", headers: auth });
+  const book = ledger.json() as Array<{ outcome: string; title: string }>;
+  expect(book.filter((row) => row.outcome === "success").length).toBeGreaterThanOrEqual(5);
+  expect(book.some((row) => row.title === "Gym by 6:30 AM" && row.outcome === "success")).toBe(true);
+  const standing = await app.inject({ method: "GET", url: "/v1/standing", headers: auth });
+  expect(standing.json()).toMatchObject({ title: "Gym by 6:30 AM", count: expect.any(Number) });
+  expect((standing.json() as { count: number }).count).toBeGreaterThanOrEqual(3);
+  const groups = await app.inject({ method: "GET", url: "/v1/groups", headers: auth });
+  expect((groups.json() as unknown[]).length).toBeGreaterThan(0);
+  const challenges = await app.inject({ method: "GET", url: "/v1/challenges", headers: auth });
+  expect((challenges.json() as unknown[]).length).toBeGreaterThan(0);
+  const checkins = await app.inject({ method: "GET", url: "/v1/checkins", headers: auth });
+  expect((checkins.json() as unknown[]).length).toBeGreaterThanOrEqual(7);
+  const board = await app.inject({ method: "GET", url: "/v1/leaderboard", headers: auth });
+  expect((board.json() as { board: unknown[] }).board.length).toBeGreaterThanOrEqual(4);
+  const people = await app.inject({ method: "GET", url: "/v1/people", headers: auth });
+  expect((people.json() as Array<{ displayName: string }>).some((p) => p.displayName === "Sam")).toBe(true);
+  const badges = await app.inject({ method: "GET", url: "/v1/achievements", headers: auth });
+  expect((badges.json() as Array<{ unlocked: boolean }>).filter((row) => row.unlocked).length).toBeGreaterThan(3);
+  const witness = await app.inject({ method: "GET", url: "/v1/me/witness", headers: auth });
+  expect((witness.json() as { tried: number }).tried).toBeGreaterThan(0);
+  const collisions = await app.inject({ method: "GET", url: "/v1/collisions", headers: auth });
+  expect((collisions.json() as unknown[]).length).toBeGreaterThan(0);
+  const feed = await app.inject({ method: "GET", url: "/v1/feed", headers: auth });
+  expect((feed.json() as unknown[]).length).toBeGreaterThan(0);
+  const me = await app.inject({ method: "GET", url: "/v1/me", headers: auth });
+  expect((me.json() as { user: { kept: number; broken: number } }).user.kept).toBeGreaterThanOrEqual(5);
+}
+
 describe("commitment loop", () => {
   afterEach(() => store.reset());
 
@@ -407,13 +446,7 @@ describe("commitment loop", () => {
     expect(verified.statusCode).toBe(200);
     const { token, user } = verified.json() as { token: string; user: { displayName: string; email: string } };
     expect(user).toMatchObject({ displayName: "Alec", email: "demo@cinch.app" });
-    const auth = { authorization: `Bearer ${token}` };
-    const active = await app.inject({ method: "GET", url: "/v1/commitments/active", headers: auth });
-    expect((active.json() as unknown[]).length).toBeGreaterThan(0);
-    const friends = await app.inject({ method: "GET", url: "/v1/friends", headers: auth });
-    expect((friends.json() as { people: unknown[] }).people.length).toBeGreaterThanOrEqual(3);
-    const watching = await app.inject({ method: "GET", url: "/v1/watching", headers: auth });
-    expect((watching.json() as unknown[]).length).toBeGreaterThan(0);
+    await expectPopulatedWorld(app, { authorization: `Bearer ${token}` });
     await app.close();
   });
 
@@ -434,11 +467,7 @@ describe("commitment loop", () => {
     expect(verified.statusCode).toBe(200);
     const { token, user } = verified.json() as { token: string; user: { email: string; displayName: string } };
     expect(user).toMatchObject({ email: "alecramoski@gmail.com", displayName: "Alec" });
-    const auth = { authorization: `Bearer ${token}` };
-    const active = await app.inject({ method: "GET", url: "/v1/commitments/active", headers: auth });
-    expect((active.json() as unknown[]).length).toBeGreaterThan(0);
-    const friends = await app.inject({ method: "GET", url: "/v1/friends", headers: auth });
-    expect((friends.json() as { people: unknown[] }).people.length).toBeGreaterThanOrEqual(3);
+    await expectPopulatedWorld(app, { authorization: `Bearer ${token}` });
     await app.close();
   });
 
