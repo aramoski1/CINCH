@@ -3,6 +3,7 @@ import { z } from "zod";
 import { unauthorized } from "@cinch/shared";
 import { createSupabaseEmailOtp } from "@cinch/adapters";
 import type { Env } from "../config/env";
+import { DEMO_CODE, DEMO_NAME, ensureDemoAccount, isDemoEmail } from "../seed-demo";
 import { newId, store } from "../store";
 
 function issueSession(email: string, displayName?: string) {
@@ -26,6 +27,10 @@ export async function registerAuth(app: FastifyInstance, env: Env) {
 
   app.post("/v1/auth/email", async (req) => {
     const { email } = z.object({ email: z.string().email() }).parse(req.body);
+    if (isDemoEmail(email)) {
+      ensureDemoAccount();
+      return { ok: true, devCode: DEMO_CODE };
+    }
     const existing = store.otps.get(email);
     if (existing && existing.attempts >= 3 && existing.expires > Date.now()) {
       return { ok: true, throttled: true };
@@ -48,6 +53,10 @@ export async function registerAuth(app: FastifyInstance, env: Env) {
         displayName: z.string().min(1).optional(),
       })
       .parse(req.body);
+    if (isDemoEmail(email) && code === DEMO_CODE) {
+      const demo = ensureDemoAccount();
+      return issueSession(demo.email, displayName ?? DEMO_NAME);
+    }
     if (local) {
       const otp = store.otps.get(email);
       if (!otp || otp.expires < Date.now()) throw unauthorized("OTP expired");

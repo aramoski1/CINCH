@@ -384,6 +384,32 @@ describe("commitment loop", () => {
     await app.close();
   });
 
+  it("signs into a populated demo account", async () => {
+    const app = await buildApp(env);
+    const issued = await app.inject({
+      method: "POST",
+      url: "/v1/auth/email",
+      payload: { email: "demo@cinch.app" },
+    });
+    expect(issued.json()).toMatchObject({ ok: true, devCode: "246810" });
+    const verified = await app.inject({
+      method: "POST",
+      url: "/v1/auth/verify",
+      payload: { email: "demo@cinch.app", code: "246810", displayName: "Alec" },
+    });
+    expect(verified.statusCode).toBe(200);
+    const { token, user } = verified.json() as { token: string; user: { displayName: string; email: string } };
+    expect(user).toMatchObject({ displayName: "Alec", email: "demo@cinch.app" });
+    const auth = { authorization: `Bearer ${token}` };
+    const active = await app.inject({ method: "GET", url: "/v1/commitments/active", headers: auth });
+    expect((active.json() as unknown[]).length).toBeGreaterThan(0);
+    const friends = await app.inject({ method: "GET", url: "/v1/friends", headers: auth });
+    expect((friends.json() as { people: unknown[] }).people.length).toBeGreaterThanOrEqual(3);
+    const watching = await app.inject({ method: "GET", url: "/v1/watching", headers: auth });
+    expect((watching.json() as unknown[]).length).toBeGreaterThan(0);
+    await app.close();
+  });
+
   it("round-trips the in-memory store through a snapshot", () => {
     const user = store.newUser("snap@cinch.test", "Snap");
     store.linkFriends(user.id, user.id);
