@@ -127,7 +127,7 @@ function AuthScreen({
       <p style={ui.kicker}>Cinch</p>
       {stage === "email" ? (
         <>
-          <h1 style={ui.display}>Your email. A six-digit code. That’s it.</h1>
+          <h1 style={ui.display}>Your email. A six-digit code. That's it.</h1>
           {inviteCode ? (
             <p style={{ opacity: 0.75 }}>
               Someone sent you a card ({inviteCode}). Sign in to hold them to it.
