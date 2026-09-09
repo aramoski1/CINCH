@@ -14,8 +14,8 @@ function withVercelUrls(raw: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const origin = host.startsWith("http") ? host : `https://${host}`;
   return {
     ...raw,
-    API_BASE_URL: raw.API_BASE_URL || origin,
-    WEB_BASE_URL: raw.WEB_BASE_URL || origin,
+    API_BASE_URL: origin,
+    WEB_BASE_URL: origin,
   };
 }
 
