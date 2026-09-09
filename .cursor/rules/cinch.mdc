@@ -1,0 +1,17 @@
+---
+description: Hard constraints for the Cinch v0 lean build (Appendix A)
+alwaysApply: true
+---
+
+# Cinch v0 hard constraints
+
+These apply to every step. Appendix A governs this build and overrides §25.1, §36 Phases 0–4, and the auth parts of §26.
+
+- v0 has exactly three external credentials: Supabase, Anthropic, GitHub. Never add a package that requires a new API key. If a task seems to need one, stop and ask.
+- Vendor SDKs may only be imported inside `packages/adapters/`. Everything else uses the ports in `packages/shared/ports/` (Appendix A.4).
+- No Stripe. `PointsStakeProvider` only.
+- Ledger amounts are always `{ currency, minor }`. Never a bare integer.
+- Deadlines use pg-boss on Postgres. Never `setTimeout`, `node-cron`, or Vercel cron.
+- Never write values into `.env` or any `.env.local`. Update the `.example` files instead.
+- RLS on every user table. Never disable it to make something work.
+- One phase per instruction. Stop at the stated condition and summarize. Do not start the next phase.

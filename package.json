@@ -1,0 +1,20 @@
+{
+  "name": "cinch",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "dev": "turbo dev",
+    "dev:api": "pnpm --filter @cinch/api dev",
+    "dev:web": "pnpm --filter @cinch/web dev",
+    "build": "turbo build",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "db:migrate": "supabase db push",
+    "db:types": "supabase gen types typescript --linked > packages/database/src/types.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "turbo": "^2.1.0",
+    "typescript": "^5.6.0"
+  }
+}

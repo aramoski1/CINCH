@@ -13,3 +13,5 @@ dist/
 *.mobileprovision
 .secrets/
 .DS_Store
+*.tsbuildinfo
+.tsbuildinfo

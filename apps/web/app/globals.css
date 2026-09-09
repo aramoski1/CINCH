@@ -1,0 +1,20 @@
+:root {
+  --ink: #0a0a0b;
+  --paper: #f7f5f0;
+  --seal: #d93f2b;
+  --verified: #0f9d58;
+  --amber: #ffb300;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: Inter, "Segoe UI", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}

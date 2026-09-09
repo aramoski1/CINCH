@@ -1,0 +1,11 @@
+{
+  "name": "@cinch/config",
+  "version": "0.0.0",
+  "private": true,
+  "files": ["tsconfig.base.json", "tsconfig.node.json"],
+  "scripts": {
+    "build": "node -e \"process.exit(0)\"",
+    "typecheck": "node -e \"process.exit(0)\"",
+    "test": "node -e \"process.exit(0)\""
+  }
+}

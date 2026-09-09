@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "Cinch",
+    "slug": "cinch",
+    "scheme": "cinch",
+    "version": "0.0.1",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "ios": { "supportsTablet": false, "bundleIdentifier": "app.cinch.ios" },
+    "plugins": ["expo-router"]
+  }
+}
