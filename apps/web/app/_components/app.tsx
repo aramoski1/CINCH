@@ -315,7 +315,7 @@ function AuthScreen({
           <div className="pitch">
             <article>
               <strong>Lock it</strong>
-              <span>One sentence. Points, not money. A little friction against wriggling out.</span>
+              <span>One sentence. Dollars on the line — play money, nobody is charged.</span>
             </article>
             <article>
               <strong>Involve a friend</strong>
@@ -323,7 +323,7 @@ function AuthScreen({
             </article>
             <article>
               <strong>Prove it</strong>
-              <span>Photo before the clock hits zero. Miss it and they get the points.</span>
+              <span>Photo before the clock hits zero. Miss it and they collect the dollars.</span>
             </article>
           </div>
           <label className="sr-only" htmlFor="email">Email</label>
@@ -396,7 +396,7 @@ function Onboard({ name, onDone }: { name: string; onDone: () => void }) {
   const [step, setStep] = useState(0);
   const slides = [
     { title: `${name.split(" ")[0]}, a friend holds you to it.`, body: "Pick them from your network. They're the only audience." },
-    { title: "Photo or you lose.", body: "Beat the clock with proof. Miss the picture and they get the points." },
+    { title: "Photo or you lose.", body: "Beat the clock with proof. Miss the picture and they collect the dollars." },
     { title: "That's the whole product.", body: "Say it. Lock it. Prove it. The board ranks who actually shows up." },
   ];
   const slide = slides[step]!;

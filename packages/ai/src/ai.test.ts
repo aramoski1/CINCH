@@ -25,6 +25,17 @@ describe("parser", () => {
       expect(result.spec.title.toLowerCase()).toMatch(/gym/);
     }
   });
+
+  it("reads a dollar stake as play money", async () => {
+    const result = await parseUtterance("gym by 6:30 tomorrow or I owe Ryan $25", {
+      now: new Date(),
+      timezone: "America/New_York",
+      committerId: "11111111-1111-1111-1111-111111111111",
+      places: [],
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.spec.stake.amount.minor).toBe(2500);
+  });
 });
 
 describe("coach", () => {

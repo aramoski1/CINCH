@@ -10,7 +10,7 @@ export default function HomeTab() {
         <Text style={styles.score}>500</Text>
         <Text style={styles.streak}>0 day streak</Text>
       </View>
-      <Text style={styles.hero}>0 pts at stake today</Text>
+      <Text style={styles.hero}>$0 at stake today</Text>
       <View style={styles.card}>
         <Text style={styles.cardKicker}>NEXT UP</Text>
         <Text style={styles.cardTitle}>Nothing locked yet.</Text>

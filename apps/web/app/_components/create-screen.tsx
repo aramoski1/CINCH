@@ -234,7 +234,7 @@ export function CreateScreen({
               <p className="ok">{friendName} is holding you.</p>
               <textarea
                 className="area mt-3"
-                placeholder="Gym tomorrow at 6:30"
+                placeholder="Gym tomorrow at 6:30 or I pay $25"
                 value={utterance}
                 onChange={(e) => setUtterance(e.target.value)}
                 aria-label="Promise"
@@ -279,7 +279,7 @@ export function CreateScreen({
           <div className="chips">
             {STAKES.map((n) => (
               <button key={n} type="button" className={stake === n ? "chip on" : "chip"} onClick={() => setStake(n)}>
-                {n}
+                ${n}
               </button>
             ))}
           </div>

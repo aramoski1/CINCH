@@ -7,7 +7,7 @@ describe("Amount", () => {
   });
 
   it("formats points and usd without bare integers", () => {
-    expect(formatAmount(amount("POINTS", 2500))).toBe("2,500 pts");
+    expect(formatAmount(amount("POINTS", 2500))).toBe("$25");
     expect(formatAmount(amount("USD", 2550))).toBe("$25.50");
   });
 

@@ -1,4 +1,4 @@
-import type { LanguageModel, Place } from "@cinch/shared";
+import { formatAmount, type LanguageModel, type Place } from "@cinch/shared";
 import { gymSpec, type CommitmentSpec } from "@cinch/commitments";
 import { classifySafety } from "./safety";
 import { matchTemplate } from "./templates";
@@ -37,7 +37,7 @@ export async function parseUtterance(
     try {
       const result = await model.complete({
         system:
-          "Extract a Cinch commitment from one spoken sentence. Points only. Never invent Stripe. Prefer campus places from the provided list. Put every guess in meta.assumptions as 'I assumed …' sentences. Use the emit_spec tool.",
+          "Extract a Cinch commitment from one spoken sentence. Stakes are play dollars — never invent Stripe or a real charge. Prefer campus places from the provided list. Put every guess in meta.assumptions as 'I assumed …' sentences. Use the emit_spec tool.",
         user: JSON.stringify({
           utterance,
           now: ctx.now.toISOString(),
@@ -80,8 +80,8 @@ export function chipsFromSpec(spec: CommitmentSpec): AssumptionChip[] {
     { key: "who", label: who, assumed: `I assumed ${who} holds you to it.` },
     {
       key: "stake",
-      label: `${spec.stake.amount.minor.toLocaleString()} pts`,
-      assumed: `I assumed ${spec.stake.amount.minor.toLocaleString()} points on the line.`,
+      label: formatAmount(spec.stake.amount),
+      assumed: `I assumed ${formatAmount(spec.stake.amount)} on the line.`,
     },
     { key: "how", label: howLine(spec), assumed: `I assumed I'll check this by ${howLine(spec).toLowerCase()}.` },
   ];
@@ -152,7 +152,7 @@ function mergeSpec(
     partner
       ? `I assumed ${partner} — tap if that's the wrong ${partner}.`
       : "I assumed a charity forfeit if nobody is named.",
-    `I assumed ${extracted.stakeMinor.toLocaleString()} points on the line.`,
+    `I assumed ${formatAmount({ currency: "POINTS", minor: extracted.stakeMinor })} on the line.`,
   ];
 
   const conditions =
@@ -272,18 +272,19 @@ function leaf(kind: "location.enter" | "location.dwell" | "time.window" | "proof
 }
 
 function extractStake(utterance: string, fallback: number): number {
-  const named = utterance.match(/(\d[\d,]*)\s*(points|pts)\b/i);
-  const owed = utterance.match(/\b(?:owe|lose|stake)\b[^0-9]{0,12}(\d[\d,]*)/i);
-  const raw = named?.[1] ?? owed?.[1];
+  const cash = utterance.match(/\$(\d[\d,]*(?:\.\d{1,2})?)/);
+  const named = utterance.match(/(\d[\d,]*(?:\.\d{1,2})?)\s*(?:points?|pts|dollars?|bucks)\b/i);
+  const owed = utterance.match(/\b(?:owe|lose|stake|collect|pay)\b[^0-9$]{0,16}\$?(\d[\d,]*(?:\.\d{1,2})?)/i);
+  const raw = cash?.[1] ?? named?.[1] ?? owed?.[1];
   if (!raw) return fallback;
   const n = Number(raw.replace(/,/g, ""));
   if (!Number.isFinite(n) || n <= 0) return fallback;
-  return n < 500 ? n * 100 : n;
+  return n < 500 ? Math.round(n * 100) : Math.round(n);
 }
 
 function extractPartner(utterance: string): string | null {
   const owe = utterance.match(/\bowe\s+([A-Z][a-z]+)\b/);
-  if (owe && !/points?|pts|charity/i.test(owe[1] ?? "")) return owe[1] ?? null;
+  if (owe && !/points?|pts|dollars?|bucks|charity/i.test(owe[1] ?? "")) return owe[1] ?? null;
   const both = utterance.match(/\bme and ([A-Z][a-z]+)\b/i);
   if (both) return both[1] ?? null;
   const hold = utterance.match(/\b(?:with|vs|versus)\s+([A-Z][a-z]+)\b/);

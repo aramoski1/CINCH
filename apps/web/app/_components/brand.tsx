@@ -16,7 +16,7 @@ export function Wordmark({ size = 44 }: { size?: number }) {
       <Mark size={size} />
       <span>
         <span className="brand-name">Cinch</span>
-        <span className="brand-caption">keep your word</span>
+        <span className="brand-caption">keep your word or pay</span>
       </span>
     </div>
   );

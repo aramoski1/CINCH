@@ -3,10 +3,11 @@ export function initials(name: string): string {
   return ((parts[0]?.[0] ?? "C") + (parts[1]?.[0] ?? "")).toUpperCase();
 }
 
-/** Ledger stores minor units. People type 25 — show 25. */
+/** Ledger stores cents. People type 25 — show $25. Nothing is charged. */
 export function formatStake(minor: number): string {
-  if (minor >= 100 && minor % 100 === 0) return String(minor / 100);
-  return String(minor);
+  const dollars = minor / 100;
+  if (Number.isInteger(dollars)) return `$${dollars.toLocaleString("en-US")}`;
+  return `$${dollars.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export function formatPts(n: number): string {

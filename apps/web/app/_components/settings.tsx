@@ -211,7 +211,7 @@ export function SettingsStack({
               className={settings.defaultStake === n ? "chip on" : "chip"}
               onClick={() => void patch({ defaultStake: n })}
             >
-              {n}
+              ${n}
             </button>
           ))}
         </div>
@@ -292,11 +292,11 @@ export function SettingsStack({
         <ol className="steps">
           <li>
             <strong>Pick a friend.</strong>
-            <span>Someone from your network holds you. If you miss, they get the points.</span>
+            <span>Someone from your network holds you. If you miss, they collect the dollars.</span>
           </li>
           <li>
             <strong>Lock the promise.</strong>
-            <span>Say it like a text. Put points on the line.</span>
+            <span>Say it like a text. Put dollars on the line.</span>
           </li>
           <li>
             <strong>Send a photo before time's up.</strong>
@@ -316,11 +316,11 @@ export function SettingsStack({
         <h1 className="hero-s">Cinch</h1>
         <Group>
           <Cell label="Version" value="0.1.0" />
-          <Cell label="Stakes" value="Points only" />
-          <Cell label="Payments" value="Off" />
+          <Cell label="Stakes" value="Play dollars" />
+          <Cell label="Payments" value="Off — nothing is charged" />
         </Group>
         <p className="muted mt-4">
-          A friend holds you to it. You pay if you don't. No loot, no nags, no imposed commitments.
+          A friend holds you to it. You pay if you don't. The dollars are on the board only — nobody is charged, and there's no deposit.
         </p>
       </section>
     );

@@ -27,9 +27,9 @@ export function addAmounts(a: Amount, b: Amount): Amount {
   return { currency: a.currency, minor: a.minor + b.minor };
 }
 
+/** Play dollars. Ledger may still be POINTS; nothing is charged. */
 export function formatAmount(value: Amount): string {
-  if (value.currency === "POINTS") {
-    return `${value.minor.toLocaleString("en-US")} pts`;
-  }
-  return `$${(value.minor / 100).toFixed(2)}`;
+  const dollars = value.minor / 100;
+  if (Number.isInteger(dollars)) return `$${dollars.toLocaleString("en-US")}`;
+  return `$${dollars.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }

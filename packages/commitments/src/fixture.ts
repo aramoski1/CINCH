@@ -26,7 +26,7 @@ export function gymSpec(overrides: Partial<CommitmentSpec> = {}): CommitmentSpec
   return {
     version: "1.0",
     title: "Gym by 6:30 AM",
-    natural_language: "Gym by 6:30 tomorrow and stay 45 minutes or I owe Ryan 2500 points.",
+    natural_language: "Gym by 6:30 tomorrow and stay 45 minutes or I owe Ryan $25.",
     committer_id: "11111111-1111-1111-1111-111111111111",
     partners: [
       {

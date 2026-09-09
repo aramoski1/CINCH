@@ -97,7 +97,7 @@ export function YouScreen({
 
   const kept = me.kept ?? year?.kept ?? ledger.filter((r) => r.outcome === "success").length;
   const broken = me.broken ?? year?.broken ?? ledger.filter((r) => r.outcome === "failure").length;
-  const points = wallet ? formatStake(wallet.available.minor) : "—";
+  const cash = wallet ? formatStake(wallet.available.minor) : "—";
   const xp = xpFill(me.score ?? 500);
   const fire = streakTier(me.streak);
 
@@ -154,8 +154,8 @@ export function YouScreen({
           <span>missed</span>
         </div>
         <div>
-          <span className="nums">{points}</span>
-          <span>points</span>
+          <span className="nums">{cash}</span>
+          <span>dollars</span>
         </div>
       </div>
 

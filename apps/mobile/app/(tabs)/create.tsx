@@ -26,7 +26,7 @@ export default function CreateTab() {
       <Text style={styles.title}>Say it once.</Text>
       <TextInput
         multiline
-        placeholder="Gym by 6:30 tomorrow or I owe Ryan 2500 points"
+        placeholder="Gym by 6:30 tomorrow or I owe Ryan $25"
         placeholderTextColor="#8a877c"
         style={styles.input}
         value={utterance}

@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { amount, badRequest, notFound, safetyBlocked } from "@cinch/shared";
+import { amount, badRequest, formatAmount, notFound, safetyBlocked } from "@cinch/shared";
 import {
   canOfferStreakInsurance,
   commitmentSpecSchema,
@@ -55,7 +55,7 @@ export async function registerCommitments(app: FastifyInstance, env: Env) {
       rendered: renderCommitment(
         parsed.spec.title,
         parsed.spec.conditions,
-        `${parsed.spec.stake.amount.minor.toLocaleString()} pts on the line`,
+        `${formatAmount(parsed.spec.stake.amount)} on the line`,
       ),
       assumptions: parsed.assumptions,
       chips: parsed.chips,

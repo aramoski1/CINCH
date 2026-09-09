@@ -12,7 +12,7 @@ const RULES: Array<{ category: string; pattern: RegExp; message: string; resourc
   {
     category: "eating-disorder",
     pattern: /\b(starve|calorie.?cap|purge|anorex|bulim)/i,
-    message: "I won't lock eating or body-weight targets. If you want movement or meals logged as points, keep it kind.",
+    message: "I won't lock eating or body-weight targets. If you want movement or meals logged as dollars, keep it kind.",
   },
   {
     category: "minors",

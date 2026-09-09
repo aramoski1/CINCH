@@ -165,7 +165,7 @@ export function HomeScreen({
           </li>
           <li>
             <strong>Lock it.</strong>
-            <span>Points on the line.</span>
+            <span>Dollars on the line.</span>
           </li>
           <li>
             <strong>Prove it.</strong>

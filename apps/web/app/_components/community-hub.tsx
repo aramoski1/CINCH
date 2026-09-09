@@ -10,7 +10,7 @@ import type {
   PersonProfile,
 } from "@cinch/api-client";
 import { createBrowserApi } from "../../lib/api";
-import { formatStake, initials } from "../../lib/format";
+import { initials } from "../../lib/format";
 import { face } from "./brand";
 
 type Hub = "board" | "network" | "challenges" | "badges" | "squads" | "play";
@@ -281,7 +281,7 @@ function ChallengesPane({
       ))}
       <p className="eyebrow mt-4">New challenge</p>
       <input className="field" type="email" placeholder="their@email.com" value={email} onChange={(e) => setEmail(e.target.value)} />
-      <textarea className="area mt-3" placeholder="Gym tomorrow at 6:30" value={utterance} onChange={(e) => setUtterance(e.target.value)} />
+      <textarea className="area mt-3" placeholder="Gym tomorrow at 6:30 or I pay $25" value={utterance} onChange={(e) => setUtterance(e.target.value)} />
       <button
         type="button"
         className="btn btn-lock mt-3"
@@ -424,7 +424,7 @@ function FriendPane({
         <div>
           <p className="eyebrow">{person.relationship === "friend" ? "Friend" : "On Cinch"}</p>
           <h2 className="hero-s">{person.displayName}</h2>
-          <p className="muted">{person.streak} streak · {formatStake(person.score)} score</p>
+          <p className="muted">{person.streak} streak · {person.score} score</p>
         </div>
       </div>
       <dl className="meta-list">

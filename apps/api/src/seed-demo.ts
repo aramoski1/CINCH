@@ -112,7 +112,7 @@ export function ensureDemoAccount(email: string = DEMO_EMAIL, opts?: { force?: b
     id: incoming,
     fromUserId: jules.id,
     toUserId: alec.id,
-    utterance: "No phone in bed tonight or I collect 20 points",
+    utterance: "No phone in bed tonight or I collect $20",
     state: "pending",
     createdAt: new Date().toISOString(),
   });
@@ -121,7 +121,7 @@ export function ensureDemoAccount(email: string = DEMO_EMAIL, opts?: { force?: b
     id: outgoing,
     fromUserId: alec.id,
     toUserId: sam.id,
-    utterance: "Library tomorrow at 7 or I collect 15 points",
+    utterance: "Library tomorrow at 7 or I collect $15",
     state: "pending",
     createdAt: new Date().toISOString(),
   });
@@ -339,7 +339,7 @@ function specFor(
   const start = new Date(end.getTime() - 6 * 3600_000);
   return gymSpec({
     title: input.title,
-    natural_language: `${input.line} or I owe ${witness.displayName} ${input.stake / 100} points.`,
+    natural_language: `${input.line} or I owe ${witness.displayName} $${input.stake / 100}.`,
     committer_id: committer.id,
     partners: [
       {
