@@ -152,14 +152,145 @@ export async function registerSocial(app: FastifyInstance, env: Env) {
   });
 
   app.get("/v1/feed", async (req) => {
-    requireUser(req.headers.authorization);
-    return store.feed;
+    const user = requireUser(req.headers.authorization);
+    const circle = new Set<string>([user.id, ...(store.friends.get(user.id) ?? [])]);
+    const names = new Set(
+      [...circle].map((id) => store.users.get(id)?.displayName).filter((name): name is string => Boolean(name)),
+    );
+    return store.feed
+      .filter((item) => {
+        if (item.type === "checkin") return false;
+        if (typeof item.actorId === "string") return circle.has(item.actorId);
+        if (typeof item.actor === "string") return names.has(item.actor);
+        return true;
+      })
+      .map((item) => {
+        const kudos = Array.isArray(item.kudos) ? (item.kudos as string[]) : [];
+        const type = String(item.type ?? "locked");
+        const mine = item.actorId === user.id || item.actor === user.displayName;
+        const who = mine ? "You" : String(item.actor ?? "Someone");
+        return {
+          id: String(item.id ?? ""),
+          type,
+          title:
+            type === "kept"
+              ? `${who} kept ${mine ? "your" : "their"} word`
+              : type === "broke"
+                ? `${who} missed`
+                : type === "voided"
+                  ? `${who} voided a pact`
+                  : `${who} locked a promise`,
+          detail: item.title ? String(item.title) : "A private pact moved.",
+          actor: item.actor ?? null,
+          at: item.at ?? new Date().toISOString(),
+          accent: type === "kept" ? "ok" : type === "broke" ? "hot" : "teal",
+          kudosCount: kudos.length,
+          kudosActive: kudos.includes(user.id),
+          mine,
+        };
+      });
   });
 
   app.post("/v1/feed/:id/react", async (req) => {
-    requireUser(req.headers.authorization);
-    store.feed.push({ type: "reaction", id: (req.params as { id: string }).id });
-    return { ok: true };
+    const user = requireUser(req.headers.authorization);
+    const { id } = req.params as { id: string };
+    const item = store.feed.find((row) => row.id === id);
+    if (!item) throw notFound();
+    const kudos = Array.isArray(item.kudos) ? (item.kudos as string[]) : [];
+    item.kudos = kudos.includes(user.id) ? kudos.filter((uid) => uid !== user.id) : [...kudos, user.id];
+    return { ok: true, kudosCount: (item.kudos as string[]).length };
+  });
+
+  app.get("/v1/checkins", async (req) => {
+    const user = requireUser(req.headers.authorization);
+    return store.checkins.filter((row) => row.userId === user.id);
+  });
+
+  app.post("/v1/checkins", async (req) => {
+    const user = requireUser(req.headers.authorization);
+    const body = z
+      .object({
+        localDate: z.string().min(8),
+        timezone: z.string().min(1),
+        mood: z.enum(["locked-in", "steady", "struggling"]),
+        note: z.string().max(240).optional().nullable(),
+      })
+      .parse(req.body);
+    if (store.checkins.some((row) => row.userId === user.id && row.localDate === body.localDate)) {
+      return store.checkins.find((row) => row.userId === user.id && row.localDate === body.localDate);
+    }
+    const row = {
+      id: newId(),
+      userId: user.id,
+      localDate: body.localDate,
+      timezone: body.timezone,
+      mood: body.mood,
+      note: body.note?.trim() || null,
+      at: new Date().toISOString(),
+    };
+    store.checkins.unshift(row);
+    return row;
+  });
+
+  app.get("/v1/people", async (req) => {
+    const user = requireUser(req.headers.authorization);
+    const q = String((req.query as { q?: string }).q ?? "")
+      .trim()
+      .toLowerCase();
+    const mine = store.friends.get(user.id) ?? new Set();
+    return [...store.users.values()]
+      .filter((person) => person.id !== user.id)
+      .filter((person) => !q || person.displayName.toLowerCase().includes(q) || person.email.toLowerCase().includes(q))
+      .map((person) => ({
+        id: person.id,
+        displayName: person.displayName,
+        email: person.email,
+        relationship: mine.has(person.id) ? ("friend" as const) : ("none" as const),
+        streak: person.streak,
+        score: person.score,
+        rate: store.userStats(person.id).rate,
+      }))
+      .sort((a, b) => Number(a.relationship === "friend") - Number(b.relationship === "friend") || b.rate - a.rate || b.score - a.score)
+      .slice(0, 20);
+  });
+
+  app.get("/v1/people/:id", async (req) => {
+    const me = requireUser(req.headers.authorization);
+    const person = store.users.get((req.params as { id: string }).id);
+    if (!person) throw notFound();
+    const mine = [...store.commitments.values()].filter((c) => c.spec.committer_id === me.id);
+    const theirs = [...store.commitments.values()].filter((c) => c.spec.committer_id === person.id);
+    const shared = [...store.commitments.values()].filter(
+      (c) =>
+        (c.spec.committer_id === me.id && c.spec.partners.some((p) => p.resolved_user_id === person.id)) ||
+        (c.spec.committer_id === person.id && c.spec.partners.some((p) => p.resolved_user_id === me.id)),
+    );
+    const keptTogether = shared.filter((c) => c.outcome === "success").length;
+    const theirsFriends = store.friends.get(person.id) ?? new Set();
+    const mineFriends = store.friends.get(me.id) ?? new Set();
+    let mutual = 0;
+    for (const id of mineFriends) if (theirsFriends.has(id)) mutual += 1;
+    return {
+      person: {
+        id: person.id,
+        displayName: person.displayName,
+        email: person.email,
+        streak: person.streak,
+        score: person.score,
+        relationship: mineFriends.has(person.id) ? "friend" : "none",
+      },
+      sharedCommitments: shared.length,
+      keptTogether,
+      mutualFriends: mutual,
+      achievements: store.achievements(person.id).filter((a) => a.unlocked),
+      theirLocks: theirs.length,
+      yourLocks: mine.length,
+    };
+  });
+
+  app.get("/v1/achievements", async (req) => {
+    const user = requireUser(req.headers.authorization);
+    return store.achievements(user.id);
   });
 
   app.post("/v1/evidence/nonce", async (req) => {

@@ -222,6 +222,22 @@ describe("commitment loop", () => {
     await app.close();
   });
 
+  it("locks with an explicit deadline", async () => {
+    const app = await buildApp(env);
+    const alec = await signup(app, "alec-deadline@cinch.test");
+    const due = new Date(Date.now() + 2 * 86400_000);
+    due.setUTCHours(18, 0, 0, 0);
+    const locked = await app.inject({
+      method: "POST",
+      url: "/v1/commitments/lock",
+      headers: { authorization: `Bearer ${alec.token}` },
+      payload: { utterance: "Gym tomorrow at 6:30", friend: "Ryan", stake: 25, deadlineAt: due.toISOString() },
+    });
+    expect(locked.statusCode, JSON.stringify(locked.json())).toBe(200);
+    expect(Date.parse((locked.json() as { deadlineAt: string }).deadlineAt)).toBe(due.getTime());
+    await app.close();
+  });
+
   it("saves settings and lists named friends after a lock", async () => {
     const app = await buildApp(env);
     const alec = await signup(app, "alec-settings@cinch.test");
@@ -332,6 +348,32 @@ describe("commitment loop", () => {
 
     const watching = await app.inject({ method: "GET", url: "/v1/watching", headers: ryanAuth });
     expect(watching.statusCode).toBe(200);
+    await app.close();
+  });
+
+  it("checks in, lists achievements, and discovers people", async () => {
+    const app = await buildApp(env);
+    const alec = await signup(app, "alec-hub@cinch.test");
+    const ryan = await signup(app, "ryan-hub@cinch.test");
+    const auth = { authorization: `Bearer ${alec.token}` };
+    const checkin = await app.inject({
+      method: "POST",
+      url: "/v1/checkins",
+      headers: auth,
+      payload: { localDate: "2026-09-09", timezone: "America/New_York", mood: "locked-in" },
+    });
+    expect(checkin.statusCode).toBe(200);
+    const again = await app.inject({
+      method: "POST",
+      url: "/v1/checkins",
+      headers: auth,
+      payload: { localDate: "2026-09-09", timezone: "America/New_York", mood: "steady" },
+    });
+    expect((again.json() as { mood: string }).mood).toBe("locked-in");
+    const badges = await app.inject({ method: "GET", url: "/v1/achievements", headers: auth });
+    expect((badges.json() as Array<{ id: string }>).some((row) => row.id === "first-lock")).toBe(true);
+    const people = await app.inject({ method: "GET", url: "/v1/people?q=ryan", headers: auth });
+    expect((people.json() as Array<{ id: string }>).some((row) => row.id === ryan.user.id)).toBe(true);
     await app.close();
   });
 });

@@ -76,6 +76,7 @@ export async function registerCommitments(app: FastifyInstance, env: Env) {
         friend: z.string().min(1),
         friendId: z.string().uuid().optional(),
         stake: z.number().int().positive().default(25),
+        deadlineAt: z.string().optional(),
       })
       .parse(req.body);
     const safety = classifySafety(body.utterance);
@@ -124,6 +125,20 @@ export async function registerCommitments(app: FastifyInstance, env: Env) {
     };
     parsed.spec.committer_id = user.id;
     parsed.spec.reminders = [];
+    if (body.deadlineAt) {
+      const deadline = new Date(body.deadlineAt);
+      if (Number.isNaN(deadline.getTime()) || deadline.getTime() <= Date.now() + 60_000) {
+        throw badRequest("Deadline must be at least 60 seconds from now.");
+      }
+      parsed.spec.schedule.deadline_at = deadline.toISOString();
+      const existingStart = parsed.spec.schedule.start_at
+        ? new Date(parsed.spec.schedule.start_at)
+        : new Date(deadline.getTime() - 3600_000);
+      parsed.spec.schedule.start_at =
+        Number.isNaN(existingStart.getTime()) || existingStart >= deadline
+          ? new Date(deadline.getTime() - 3600_000).toISOString()
+          : existingStart.toISOString();
+    }
     applyStakeMode(parsed.spec);
     const failure = firstFailure(
       validateSpec(parsed.spec, {
@@ -155,8 +170,10 @@ export async function registerCommitments(app: FastifyInstance, env: Env) {
       id: row.id,
       title: row.spec.title,
       actor: user.displayName,
+      actorId: user.id,
       hideStake: false,
       at: new Date().toISOString(),
+      kudos: [],
     });
     return {
       id: row.id,
@@ -286,9 +303,11 @@ export async function registerCommitments(app: FastifyInstance, env: Env) {
       id: row.id,
       title: row.spec.title,
       actor: user.displayName,
+      actorId: user.id,
       hideStake: Boolean(row.spec.meta.blind),
       category: row.spec.title,
       at: new Date().toISOString(),
+      kudos: [],
     });
     await queue.schedule("commitment.start", { id: row.id }, new Date(row.spec.schedule.start_at ?? Date.now()));
     await queue.schedule("commitment.deadline", { id: row.id }, new Date(row.spec.schedule.deadline_at));

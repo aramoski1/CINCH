@@ -158,6 +158,54 @@ export type GroupRow = {
   targets?: Record<string, string>;
 };
 
+export type FeedItem = {
+  id: string;
+  type: string;
+  title: string;
+  detail: string;
+  actor: string | null;
+  at: string;
+  accent: string;
+  kudosCount: number;
+  kudosActive: boolean;
+  mine?: boolean;
+};
+
+export type CheckIn = {
+  id: string;
+  localDate: string;
+  mood: "locked-in" | "steady" | "struggling";
+  note: string | null;
+};
+
+export type Achievement = {
+  id: string;
+  title: string;
+  description: string;
+  target: number;
+  progress: number;
+  xp: number;
+  unlocked: boolean;
+};
+
+export type DiscoverPerson = {
+  id: string;
+  displayName: string;
+  email: string;
+  relationship: "friend" | "none";
+  streak: number;
+  score: number;
+  rate?: number;
+};
+
+export type PersonProfile = {
+  person: DiscoverPerson;
+  sharedCommitments: number;
+  keptTogether: number;
+  mutualFriends: number;
+  achievements: Achievement[];
+};
+
 export type ApiErrorBody = {
   error: {
     code: string;
@@ -221,7 +269,7 @@ export class CinchApi {
     return this.request("/v1/wallet");
   }
 
-  async lock(input: { utterance: string; friend: string; friendId?: string; stake: number }): Promise<{
+  async lock(input: { utterance: string; friend: string; friendId?: string; stake: number; deadlineAt?: string }): Promise<{
     id: string;
     inviteCode: string;
     shareUrl: string;
@@ -263,8 +311,38 @@ export class CinchApi {
     return this.request(`/v1/commitments/${id}/accept`, { method: "POST", body: "{}" });
   }
 
-  async feed(): Promise<Array<Record<string, unknown>>> {
+  async feed(): Promise<FeedItem[]> {
     return this.request("/v1/feed");
+  }
+
+  async reactFeed(id: string): Promise<{ ok: true; kudosCount?: number }> {
+    return this.request(`/v1/feed/${id}/react`, { method: "POST", body: "{}" });
+  }
+
+  async checkins(): Promise<CheckIn[]> {
+    return this.request("/v1/checkins");
+  }
+
+  async createCheckIn(input: {
+    localDate: string;
+    timezone: string;
+    mood: CheckIn["mood"];
+    note?: string | null;
+  }): Promise<CheckIn> {
+    return this.request("/v1/checkins", { method: "POST", body: JSON.stringify(input) });
+  }
+
+  async people(q = ""): Promise<DiscoverPerson[]> {
+    const suffix = q.trim() ? `?q=${encodeURIComponent(q.trim())}` : "";
+    return this.request(`/v1/people${suffix}`);
+  }
+
+  async person(id: string): Promise<PersonProfile> {
+    return this.request(`/v1/people/${id}`);
+  }
+
+  async achievements(): Promise<Achievement[]> {
+    return this.request("/v1/achievements");
   }
 
   async friends(): Promise<FriendsList> {

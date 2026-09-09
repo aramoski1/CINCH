@@ -405,6 +405,7 @@ export async function registerProduct(app: FastifyInstance, env: Env) {
         ...c,
         from: store.users.get(c.fromUserId)?.displayName,
         to: store.users.get(c.toUserId)?.displayName,
+        incoming: c.toUserId === user.id,
       }));
   });
 

@@ -44,6 +44,13 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
             <p className="clock nums">
               {row.verdict === "success" ? "kept" : row.verdict === "failure" ? "missed" : row.verdict}
             </p>
+            <p className="muted">
+              {row.verdict === "success"
+                ? "You followed through. This is the evidence that makes the next promise easier."
+                : row.verdict === "failure"
+                  ? "You missed this one, and you closed it honestly. No disappearing act."
+                  : "This promise was closed clean. Nobody pays."}
+            </p>
             <p className="stake nums" style={{ marginLeft: 0 }}>
               {row.stake.hidden ? "—" : formatStake(row.stake.minor)}
             </p>

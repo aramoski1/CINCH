@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { remaining, initials, formatStake } from "../../../lib/format";
 import { loadSession } from "../../../lib/session";
 import { createBrowserApi } from "../../../lib/api";
+import { Wordmark, face } from "../../_components/brand";
 
 type Invite = {
   id: string;
@@ -16,6 +17,10 @@ type Invite = {
   committer?: { displayName: string };
   partner?: string;
   state?: string;
+  nudges?: string[];
+  reactions?: string[];
+  reacted?: string[];
+  witnesses?: string[];
 };
 
 export default function InvitePage({ params }: { params: Promise<{ code: string }> }) {
@@ -67,6 +72,7 @@ export default function InvitePage({ params }: { params: Promise<{ code: string 
 
   return (
     <main className="invite-stage">
+      <Wordmark size={44} />
       {missing ? (
         <article className="bet">
           <p className="eyebrow">Witness</p>
@@ -75,16 +81,34 @@ export default function InvitePage({ params }: { params: Promise<{ code: string 
         </article>
       ) : (
         <article className="bet live" style={{ width: "min(24rem, 100%)" }}>
-          <p className="eyebrow">Hold them to it</p>
+          <p className="eyebrow">
+            {invite?.outcome === "success" ? "Kept" : invite?.outcome === "failure" ? "Missed" : "Hold them to it"}
+          </p>
           <div className="who" style={{ marginTop: 0 }}>
-            <div className="avatar">{initials(name)}</div>
+            <div className="avatar" style={{ background: face(name) }}>{initials(name)}</div>
             <span>{name}</span>
           </div>
           <h2>{invite?.title ?? "…"}</h2>
+          <p className="muted">{invite?.rendered}</p>
           <p className={clock.risky ? "clock nums hot" : "clock nums"}>{invite ? clock.label : "—"}</p>
           <p className="stake nums" style={{ marginLeft: 0, marginTop: "0.75rem" }}>
             {invite?.stake.hidden ? "Hidden until the end" : invite ? formatStake(invite.stake.minor) : ""} on the line
           </p>
+          <dl className="meta-list">
+            <div>
+              <dt>Witness</dt>
+              <dd>{invite?.partner ?? "you"}</dd>
+            </div>
+            <div>
+              <dt>Proof</dt>
+              <dd>Photo, or they lose</dd>
+            </div>
+            <div>
+              <dt>Why it matters</dt>
+              <dd>Someone who cares is in the room.</dd>
+            </div>
+          </dl>
+          <p className="muted">Private by default. This pact is only visible to you and your witness.</p>
           {authed ? (
             <div className="stack mt-4">
               <button type="button" className="btn btn-lock" onClick={() => void showed()}>
@@ -109,6 +133,44 @@ export default function InvitePage({ params }: { params: Promise<{ code: string 
               Hold {first} to it
             </a>
           )}
+          {authed && invite?.nudges?.length ? (
+            <div className="filters mt-3">
+              {invite.nudges.map((line) => (
+                <button
+                  key={line}
+                  type="button"
+                  className="chip"
+                  onClick={() =>
+                    void createBrowserApi()
+                      .nudge(invite.id, line)
+                      .then(() => setNote(line))
+                      .catch((e) => setNote(e instanceof Error ? e.message : "One shot."))
+                  }
+                >
+                  {line}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {authed && invite?.reactions?.length ? (
+            <div className="filters mt-3">
+              {invite.reactions.map((line) => (
+                <button
+                  key={line}
+                  type="button"
+                  className="chip"
+                  onClick={() =>
+                    void createBrowserApi()
+                      .reactVerdict(invite.id, line)
+                      .then(() => setNote(line))
+                      .catch((e) => setNote(e instanceof Error ? e.message : "Couldn't stamp that."))
+                  }
+                >
+                  {line}
+                </button>
+              ))}
+            </div>
+          ) : null}
           {note ? <p className="ok mt-3">{note}</p> : null}
           <a className="text-btn center mt-4" href="/">
             Open Cinch

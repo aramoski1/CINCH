@@ -113,6 +113,15 @@ const disputes = new Map<string, { id: string; commitmentId: string; state: stri
 const groups = new Map<string, GroupRecord>();
 const audit: Array<Record<string, unknown>> = [];
 const challenges = new Map<string, ChallengeRecord>();
+const checkins: Array<{
+  id: string;
+  userId: string;
+  localDate: string;
+  timezone: string;
+  mood: "locked-in" | "steady" | "struggling";
+  note: string | null;
+  at: string;
+}> = [];
 const openQuestion: OpenQuestionRecord = {
   id: "oq-today",
   title: "Was this a gym session?",
@@ -136,6 +145,7 @@ export const store = {
   groups,
   audit,
   challenges,
+  checkins,
   openQuestion,
   reset() {
     users.clear();
@@ -152,6 +162,7 @@ export const store = {
     groups.clear();
     audit.length = 0;
     challenges.clear();
+    checkins.length = 0;
     openQuestion.votes = { kept: 0, voided: 0, broke: 0 };
     openQuestion.voted = new Set();
   },
@@ -286,10 +297,12 @@ export const store = {
       id,
       title: row.spec.title,
       actor: user?.displayName,
+      actorId: user?.id,
       at: new Date().toISOString(),
       hideStake: true,
       category: categoryFromTitle(row.spec.title),
       streak: user?.streak,
+      kudos: [],
     });
     return row;
   },
@@ -355,6 +368,27 @@ export const store = {
   },
   hasPhoto(id: string): boolean {
     return (evidence.get(id) ?? []).some((e) => e.kind === "photo");
+  },
+  achievements(userId: string) {
+    const stats = this.userStats(userId);
+    const locks = [...commitments.values()].filter((c) => c.spec.committer_id === userId).length;
+    const photos = [...commitments.values()].filter((c) => c.spec.committer_id === userId && this.hasPhoto(c.id)).length;
+    const held = [...commitments.values()].filter((c) =>
+      c.spec.partners.some((p) => p.resolved_user_id === userId),
+    ).length;
+    const friendsCount = friends.get(userId)?.size ?? 0;
+    const defs = [
+      { id: "first-lock", title: "Make it real", description: "Lock your first promise.", target: 1, progress: locks, xp: 50 },
+      { id: "first-keep", title: "Word kept", description: "Close one with proof.", target: 1, progress: stats.kept, xp: 80 },
+      { id: "streak-3", title: "Three in a row", description: "Hold a 3-keep streak.", target: 3, progress: stats.streak, xp: 100 },
+      { id: "streak-7", title: "Week of word", description: "A 7-keep streak.", target: 7, progress: stats.streak, xp: 200 },
+      { id: "kept-5", title: "Evidence trail", description: "Keep five promises.", target: 5, progress: stats.kept, xp: 150 },
+      { id: "photo", title: "Show your work", description: "Send photo proof.", target: 1, progress: photos, xp: 60 },
+      { id: "network", title: "Someone watching", description: "Add a friend.", target: 1, progress: friendsCount, xp: 40 },
+      { id: "witness", title: "In the room", description: "Hold someone else to it.", target: 1, progress: held, xp: 40 },
+      { id: "honest", title: "No disappearing act", description: "Close a miss honestly.", target: 1, progress: stats.broken, xp: 40 },
+    ];
+    return defs.map((d) => ({ ...d, unlocked: d.progress >= d.target }));
   },
   userStats(userId: string) {
     const mine = [...commitments.values()].filter((c) => c.spec.committer_id === userId);

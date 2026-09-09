@@ -5,7 +5,12 @@ import type { AuthSession, CommitmentRow, WatchingRow } from "@cinch/api-client"
 import { createBrowserApi } from "../../lib/api";
 import { formatStake, initials, remaining } from "../../lib/format";
 import { compressPhoto } from "../../lib/photo";
+import { Wordmark, face } from "./brand";
 import { Confirm } from "./ui";
+import { WeeklySignal, WinShare } from "./signal";
+import { CheckInCard } from "./check-in";
+import { ActivityTrail } from "./activity-trail";
+import type { LedgerBit } from "../../lib/signal";
 
 export function HomeScreen({
   api,
@@ -22,6 +27,8 @@ export function HomeScreen({
 }) {
   const [rows, setRows] = useState<CommitmentRow[] | undefined>(undefined);
   const [watching, setWatching] = useState<WatchingRow[]>([]);
+  const [ledger, setLedger] = useState<LedgerBit[]>([]);
+  const [hits, setHits] = useState<Array<{ title: string; them: string; category: string }>>([]);
   const [tick, setTick] = useState(0);
   const [err, setErr] = useState("");
   const [note, setNote] = useState("");
@@ -35,9 +42,16 @@ export function HomeScreen({
 
   async function refresh() {
     try {
-      const [next, hold] = await Promise.all([api.activeCommitments(), api.watching()]);
+      const [next, hold, book, bump] = await Promise.all([
+        api.activeCommitments(),
+        api.watching(),
+        api.ledger(),
+        api.collisions().catch(() => []),
+      ]);
       setRows(next);
       setWatching(hold);
+      setLedger(book);
+      setHits(bump);
       setErr("");
     } catch {
       setErr("Couldn't load. Try again.");
@@ -119,6 +133,7 @@ export function HomeScreen({
   if (rows === undefined && !err) {
     return (
       <section>
+        <Wordmark size={36} />
         <p className="eyebrow">{session.user.displayName}</p>
         <div className="skel hero-skel" />
         <div className="skel card-skel" />
@@ -129,9 +144,12 @@ export function HomeScreen({
   if ((!rows || rows.length === 0) && watching.length === 0) {
     return (
       <section className="empty">
-        <p className="eyebrow">{session.user.displayName}</p>
-        <h1 className="hero">Nobody's waiting on you.</h1>
+        <Wordmark size={48} />
+        <p className="eyebrow">{new Intl.DateTimeFormat(undefined, { weekday: "long", month: "long", day: "numeric" }).format(new Date())}</p>
+        <h1 className="hero">Make it real,<br /><em>then make it happen.</em></h1>
         <p className="lede">Pick a friend. Lock a promise. Beat the clock with a photo.</p>
+        <WinShare ledger={ledger} streak={session.user.streak} />
+        {hits[0] ? <p className="ok">You and {hits[0].them} both have a live {hits[0].category} streak.</p> : null}
         <ol className="steps tight">
           <li>
             <strong>Pick them.</strong>
@@ -156,15 +174,24 @@ export function HomeScreen({
             Try again
           </button>
         ) : null}
+        <div className="mt-4">
+          <ActivityTrail api={api} limit={3} compact />
+        </div>
       </section>
     );
   }
 
   return (
     <section>
-      <p className="eyebrow">{session.user.displayName}</p>
+      <Wordmark size={36} />
+      <p className="eyebrow">{new Intl.DateTimeFormat(undefined, { weekday: "long", month: "long", day: "numeric" }).format(new Date())}</p>
       {note ? <p className="ok">{note}</p> : null}
       {err ? <p className="status status-err">{err}</p> : null}
+      <p className="hero-s">{session.user.displayName.split(" ")[0]}, make it happen.</p>
+      <WinShare ledger={ledger} streak={session.user.streak} />
+      <WeeklySignal ledger={ledger} compact />
+      {hits[0] ? <p className="ok">You and {hits[0].them} are both on {hits[0].category}.</p> : null}
+      <p className="eyebrow mt-4">On your hook</p>
       <input
         ref={fileRef}
         className="sr-only"
@@ -174,22 +201,23 @@ export function HomeScreen({
         onChange={(e) => void onFile(e.target.files?.[0])}
       />
 
-      {rows?.map((row) => {
+      {rows?.map((row, i) => {
         const clock = remaining(row.spec.schedule?.deadline_at);
         const friend = row.spec.partners?.[0]?.ref ?? "Your friend";
         return (
           <article key={row.id} className={tearing === row.id ? "bet live fail mt-4" : "bet live mt-4"}>
-            <p className="eyebrow">Prove it</p>
+            <p className="eyebrow">On your hook · {row.hasPhoto ? "Proof in" : "Photo due"}</p>
             <h2>{row.spec.title}</h2>
             <p className={clock.risky ? "clock nums hot" : "clock nums"} aria-live="polite">
               {clock.label}
             </p>
             <div className="who">
-              <div className="avatar" aria-hidden="true">{initials(friend)}</div>
+              <div className="avatar" aria-hidden="true" style={{ background: face(friend) }}>{initials(friend)}</div>
               <span>{friend} is holding you</span>
               <span className="stake nums">{formatStake(row.spec.stake.amount.minor)}</span>
             </div>
-            <p className="muted mt-3">Photo before that clock hits zero. Miss it and they get the points.</p>
+            <p className="muted mt-3">Private. Photo before zero or {friend} collects.</p>
+            {i === 0 ? <CheckInCard api={api} about={row.spec.title} /> : null}
             <div className="stack mt-4">
               <button type="button" className="btn btn-lock" onClick={() => void pickPhoto(row)}>
                 Take proof
@@ -218,7 +246,7 @@ export function HomeScreen({
             return (
               <article key={row.id} className="bet mt-3">
                 <div className="who" style={{ marginTop: 0 }}>
-                  <div className="avatar">{initials(row.committer)}</div>
+                  <div className="avatar" style={{ background: face(row.committer) }}>{initials(row.committer)}</div>
                   <span>{row.committer}</span>
                   <span className="stake nums">{formatStake(row.stake.minor)}</span>
                 </div>
@@ -231,6 +259,10 @@ export function HomeScreen({
           })}
         </>
       ) : null}
+
+      <div className="mt-4">
+        <ActivityTrail api={api} limit={5} compact />
+      </div>
 
       {shot ? (
         <div className="overlay" role="dialog" aria-modal="true" aria-label="Send proof">

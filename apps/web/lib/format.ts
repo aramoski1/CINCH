@@ -13,6 +13,18 @@ export function formatPts(n: number): string {
   return formatStake(n);
 }
 
+/** Score lives 300–900. Fill a bar like XP. */
+export function xpFill(score: number): number {
+  return Math.min(100, Math.max(4, ((score - 300) / 600) * 100));
+}
+
+export function streakTier(n: number): "cold" | "lit" | "hot" | "blaze" {
+  if (n >= 7) return "blaze";
+  if (n >= 3) return "hot";
+  if (n >= 1) return "lit";
+  return "cold";
+}
+
 export function remaining(iso?: string): { label: string; risky: boolean; ms: number } {
   if (!iso) return { label: "—", risky: false, ms: 0 };
   const ms = Date.parse(iso) - Date.now();

@@ -10,6 +10,7 @@ import { thud } from "../../lib/format";
 import { CreateScreen } from "./create-screen";
 import { HomeScreen } from "./home-screen";
 import { YouScreen } from "./you-screen";
+import { Wordmark } from "./brand";
 
 type Tab = "home" | "new" | "you";
 
@@ -22,6 +23,7 @@ export function CinchApp() {
   const [onboarded, setOnboarded] = useState(true);
   const [ready, setReady] = useState(false);
   const [expired, setExpired] = useState(false);
+  const [unread, setUnread] = useState(0);
   const api = useMemo(
     () =>
       createBrowserApi(() => {
@@ -72,10 +74,18 @@ export function CinchApp() {
     };
   }, [api]);
 
+  useEffect(() => {
+    if (!session) {
+      setUnread(0);
+      return;
+    }
+    void api.notifications().then((notes) => setUnread(notes.length)).catch(() => undefined);
+  }, [api, session, tab]);
+
   function flash(label: string) {
     window.setTimeout(() => thud(), 80);
     setStamp(label);
-    window.setTimeout(() => setStamp(null), 900);
+    window.setTimeout(() => setStamp(null), 1100);
   }
 
   function updateUser(next: SessionUser) {
@@ -93,7 +103,7 @@ export function CinchApp() {
         <div className="screen">
           {!online ? <p className="banner" role="status">You're offline. The promise still stands.</p> : null}
           {!ready ? (
-            <p className="muted">Cinch</p>
+            <Wordmark />
           ) : !session ? (
             <AuthScreen
               inviteCode={inviteCode}
@@ -144,6 +154,7 @@ export function CinchApp() {
                   onSignOut={() => {
                     clearSession();
                     setSession(null);
+                    setUnread(0);
                     setTab("home");
                   }}
                 />
@@ -161,6 +172,24 @@ export function CinchApp() {
                 aria-current={tab === name ? "page" : undefined}
                 onClick={() => setTab(name)}
               >
+                {name === "home" ? (
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.8" />
+                    <path d="M12 8v4l2.5 1.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  </svg>
+                ) : null}
+                {name === "new" ? (
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M7 12h10M12 7v10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                ) : null}
+                {name === "you" ? (
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <circle cx="12" cy="8" r="3" stroke="currentColor" strokeWidth="1.8" />
+                    <path d="M6 19c1.2-3 3.3-4.5 6-4.5S16.8 16 18 19" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  </svg>
+                ) : null}
+                {name === "you" && unread > 0 ? <span className="tab-badge">{unread > 9 ? "9+" : unread}</span> : null}
                 {name === "new" ? "Promise" : name === "you" ? "You" : "Now"}
               </button>
             ))}
@@ -169,6 +198,11 @@ export function CinchApp() {
       </div>
       {stamp ? (
         <div className="flash" role="status" aria-live="assertive">
+          <div className="burst" aria-hidden="true">
+            {Array.from({ length: 8 }, (_, i) => (
+              <i key={i} />
+            ))}
+          </div>
           <div className="stamp">{stamp}</div>
         </div>
       ) : null}
@@ -223,31 +257,31 @@ function AuthScreen({
 
   return (
     <section>
-      <p className="eyebrow">Cinch</p>
+      <Wordmark size={52} />
       {stage === "email" ? (
         <>
-          <h1 className="hero">Tell a friend. Put something on it.</h1>
+          <h1 className="hero">Make it real,<br /><em>then make it happen.</em></h1>
           <p className="lede">
             {expired
               ? "Sign in again. The last session ended when the server restarted."
               : inviteCode
                 ? "Someone asked you to hold them to a promise. Sign in only if you need to."
-                : "You make a promise. They watch. If you flake, you pay."}
+                : "A private pact with a friend who cares enough to notice. Points on the line. Photo proof, or they collect."}
           </p>
-          <ol className="steps tight">
-            <li>
-              <strong>Promise</strong>
-              <span>Name who holds you to it.</span>
-            </li>
-            <li>
-              <strong>Lock</strong>
-              <span>Points on the line. Not money.</span>
-            </li>
-            <li>
-              <strong>Settle</strong>
-              <span>You did it, or they get the points.</span>
-            </li>
-          </ol>
+          <div className="pitch">
+            <article>
+              <strong>Lock it</strong>
+              <span>One sentence. Points, not money. A little friction against wriggling out.</span>
+            </article>
+            <article>
+              <strong>Involve a friend</strong>
+              <span>Pick someone from your network. Accountability needs a face.</span>
+            </article>
+            <article>
+              <strong>Prove it</strong>
+              <span>Photo before the clock hits zero. Miss it and they get the points.</span>
+            </article>
+          </div>
           <label className="sr-only" htmlFor="email">Email</label>
           <input
             id="email"
@@ -300,7 +334,7 @@ function Onboard({ name, onDone }: { name: string; onDone: () => void }) {
   const slide = slides[step]!;
   return (
     <section className="empty">
-      <p className="eyebrow">Cinch</p>
+      <Wordmark />
       <h1 className="hero">{slide.title}</h1>
       <p className="lede">{slide.body}</p>
       <div className="dots" aria-hidden="true">
