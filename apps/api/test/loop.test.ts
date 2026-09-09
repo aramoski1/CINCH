@@ -377,6 +377,13 @@ describe("commitment loop", () => {
     await app.close();
   });
 
+  it("rejects a blank email-link callback", async () => {
+    const app = await buildApp(env);
+    const res = await app.inject({ method: "POST", url: "/v1/auth/callback", payload: {} });
+    expect(res.statusCode).toBe(401);
+    await app.close();
+  });
+
   it("round-trips the in-memory store through a snapshot", () => {
     const user = store.newUser("snap@cinch.test", "Snap");
     store.linkFriends(user.id, user.id);

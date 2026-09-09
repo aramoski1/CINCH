@@ -253,6 +253,17 @@ export class CinchApi {
     });
   }
 
+  async completeEmailLink(input: {
+    accessToken?: string;
+    tokenHash?: string;
+    type?: string;
+  }): Promise<AuthSession> {
+    return this.request("/v1/auth/callback", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
   async me(): Promise<{ user: SessionUser; wallet: Wallet }> {
     return this.request("/v1/me");
   }

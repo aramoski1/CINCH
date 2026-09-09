@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { AuthSession, SessionUser } from "@cinch/api-client";
 import { isUnauthorized } from "@cinch/api-client";
 import { createBrowserApi } from "../../lib/api";
+import { hasAuthLink, readAuthLink, stripAuthLink } from "../../lib/auth-link";
 import { clearSession, loadSession, saveSession } from "../../lib/session";
 import { loadOnboarded, persistHaptics, saveOnboarded } from "../../lib/prefs";
 import { thud } from "../../lib/format";
@@ -43,29 +44,54 @@ export function CinchApp() {
     window.addEventListener("online", on);
     window.addEventListener("offline", on);
 
-    const current = loadSession();
-    persistHaptics(current?.user.settings?.haptics ?? true);
-    if (!current) {
+    const link = readAuthLink(window.location);
+    if (hasAuthLink(link)) {
+      void api
+        .completeEmailLink({
+          accessToken: link.accessToken,
+          tokenHash: link.tokenHash,
+          type: link.type,
+        })
+        .then((next) => {
+          saveSession(next);
+          persistHaptics(next.user.settings?.haptics ?? true);
+          setExpired(false);
+          setSession(next);
+        })
+        .catch(() => setExpired(true))
+        .finally(() => {
+          stripAuthLink();
+          setReady(true);
+        });
+    } else if (link.error) {
+      setExpired(true);
+      stripAuthLink();
       setReady(true);
     } else {
-      void api
-        .me()
-        .then((m) => {
-          const merged = { ...current, user: { ...current.user, ...m.user } };
-          saveSession(merged);
-          persistHaptics(merged.user.settings?.haptics ?? true);
-          setSession(merged);
-        })
-        .catch((error) => {
-          if (isUnauthorized(error)) {
-            clearSession();
-            setExpired(true);
-            setSession(null);
-            return;
-          }
-          setSession(current);
-        })
-        .finally(() => setReady(true));
+      const current = loadSession();
+      persistHaptics(current?.user.settings?.haptics ?? true);
+      if (!current) {
+        setReady(true);
+      } else {
+        void api
+          .me()
+          .then((m) => {
+            const merged = { ...current, user: { ...current.user, ...m.user } };
+            saveSession(merged);
+            persistHaptics(merged.user.settings?.haptics ?? true);
+            setSession(merged);
+          })
+          .catch((error) => {
+            if (isUnauthorized(error)) {
+              clearSession();
+              setExpired(true);
+              setSession(null);
+              return;
+            }
+            setSession(current);
+          })
+          .finally(() => setReady(true));
+      }
     }
 
     return () => {
@@ -299,8 +325,12 @@ function AuthScreen({
         </>
       ) : (
         <>
-          <h1 className="hero">Six digits.</h1>
-          {devCode ? <p className="ok nums otp">{devCode}</p> : <p className="muted">Check your email.</p>}
+          <h1 className="hero">Check your email.</h1>
+          {devCode ? (
+            <p className="ok nums otp">{devCode}</p>
+          ) : (
+            <p className="muted">Open the link on this phone. If the email also has six digits, you can type those instead.</p>
+          )}
           <label className="sr-only" htmlFor="otp">Code</label>
           <input
             id="otp"

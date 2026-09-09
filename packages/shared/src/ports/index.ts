@@ -90,8 +90,13 @@ export type LlmToolCall = {
 };
 
 export interface EmailOtp {
-  send(email: string): Promise<{ delivered: boolean }>;
+  send(email: string, redirectTo?: string): Promise<{ delivered: boolean }>;
   verify(email: string, code: string): Promise<boolean>;
+  consumeLink(input: {
+    accessToken?: string;
+    tokenHash?: string;
+    type?: string;
+  }): Promise<{ email: string; displayName?: string } | null>;
 }
 
 export interface RuntimeSnapshot {

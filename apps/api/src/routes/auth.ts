@@ -5,6 +5,21 @@ import { createSupabaseEmailOtp } from "@cinch/adapters";
 import type { Env } from "../config/env";
 import { newId, store } from "../store";
 
+function issueSession(email: string, displayName?: string) {
+  let user = [...store.users.values()].find((u) => u.email === email);
+  if (!user) {
+    user = store.newUser(email, displayName ?? email.split("@")[0] ?? "Friend");
+  }
+  const token = newId();
+  const refresh = newId();
+  store.sessions.set(token, { token, refresh, userId: user.id });
+  return { token, refresh, user };
+}
+
+function authRedirect(env: Env) {
+  return `${env.WEB_BASE_URL.replace(/\/$/, "")}/auth/callback`;
+}
+
 export async function registerAuth(app: FastifyInstance, env: Env) {
   const mail = createSupabaseEmailOtp({ url: env.SUPABASE_URL, anonKey: env.SUPABASE_ANON_KEY });
   const local = env.NODE_ENV !== "production";
@@ -16,7 +31,7 @@ export async function registerAuth(app: FastifyInstance, env: Env) {
       return { ok: true, throttled: true };
     }
     if (!local) {
-      await mail.send(email);
+      await mail.send(email, authRedirect(env));
       return { ok: true };
     }
     const code = String(Math.floor(100000 + Math.random() * 900000));
@@ -44,15 +59,21 @@ export async function registerAuth(app: FastifyInstance, env: Env) {
       const ok = await mail.verify(email, code);
       if (!ok) throw unauthorized("Invalid code");
     }
+    return issueSession(email, displayName);
+  });
 
-    let user = [...store.users.values()].find((u) => u.email === email);
-    if (!user) {
-      user = store.newUser(email, displayName ?? email.split("@")[0] ?? "Friend");
-    }
-    const token = newId();
-    const refresh = newId();
-    store.sessions.set(token, { token, refresh, userId: user.id });
-    return { token, refresh, user };
+  app.post("/v1/auth/callback", async (req) => {
+    const body = z
+      .object({
+        accessToken: z.string().min(1).optional(),
+        tokenHash: z.string().min(1).optional(),
+        type: z.string().optional(),
+      })
+      .parse(req.body);
+    if (!body.accessToken && !body.tokenHash) throw unauthorized("Invalid link");
+    const identity = await mail.consumeLink(body);
+    if (!identity) throw unauthorized("Invalid link");
+    return issueSession(identity.email, identity.displayName);
   });
 
   app.post("/v1/auth/refresh", async (req) => {
